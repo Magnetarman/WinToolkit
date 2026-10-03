@@ -75,7 +75,7 @@ function Invoke-ExternalCommandWithLog {
         if ($Activity) {
             $spinnerIndex = 0; $percent = 0
             while (-not $proc.HasExited -and ($TimeoutSeconds -eq 0 -or ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds)) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 if ($percent -lt 90) { $percent += Get-Random -Minimum 1 -Maximum 3 }
                 Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
@@ -115,6 +115,13 @@ function Invoke-ExternalCommandWithLog {
     catch {
         $exitCode = if ($null -ne $exitCode) { $exitCode } else { -1 }
         if ($_.Exception.Message -match 'Timeout') { $timedOut = $true }
+        # An exception raised while the spinner was animating (or any other early
+        # failure) would otherwise leave the child process running unattended.
+        if ($proc -and -not $proc.HasExited) {
+            try { $proc.Kill() } catch {
+                Write-Warning "wintoolkit-modules\60-Module.Processes.ps1, Invoke-ExternalCommandWithLog 4: $($_.Exception.Message)"
+            }
+        }
         Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'uiText.exceptionWhileRunningExternalCommand') -Context @{
             Command = $Command; Arguments = $Arguments; WorkingDir = $WorkingDirectory
             TimeoutSec = $TimeoutSeconds; ContextKey = $LogContextKey
@@ -187,7 +194,7 @@ function Invoke-WithSpinner {
         if ($Timer) {
             $totalSeconds = $TimeoutSeconds
             for ($i = $totalSeconds; $i -gt 0; $i--) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                 $percent = if ($PercentUpdate) { & $PercentUpdate } else { [math]::Round((($totalSeconds - $i) / $totalSeconds) * 100) }
                 Write-ProgressUpdate -Activity (Get-SourceTextLoc 'uiText.01Seconds' -Args @($Activity, $i)) -Status '' -Percent $percent -Icon '⏳' -Spinner $spinner -Color 'Yellow'
                 Start-Sleep -Seconds 1
@@ -197,7 +204,7 @@ function Invoke-WithSpinner {
         }
         elseif ($Process -and $result -and $result.GetType().Name -eq 'Process') {
             while (-not $result.HasExited -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                 $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                 $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
                 Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner
@@ -218,7 +225,7 @@ function Invoke-WithSpinner {
         elseif ($Job -and $result -is [System.Management.Automation.Job]) {
             try {
                 while ($result.State -eq 'Running' -and ((Get-Date) - $startTime).TotalSeconds -lt $TimeoutSeconds) {
-                    $spinner = $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length]
+                    $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                     $elapsed = [math]::Round(((Get-Date) - $startTime).TotalSeconds, 1)
                     $percent = if ($PercentUpdate) { & $PercentUpdate } elseif ($percent -lt 90) { $percent + (Get-Random -Minimum 1 -Maximum 3) } else { $percent }
                     Write-ProgressUpdate -Activity $Activity -Status (Get-SourceTextLoc 'uiText.executing0Seconds' -Args @($elapsed)) -Percent $percent -Icon '⏳' -Spinner $spinner

@@ -1,5 +1,9 @@
 
 
+# Frame set used by every spinner loop (Invoke-WithSpinner / Invoke-ExternalCommandWithLog).
+# It MUST stay initialized here: those loops index it with '% $Global:Spinners.Length'
+# and a null/empty array would raise 'Attempted to divide by zero.' on the first tick.
+$Global:Spinners = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'.ToCharArray()
 $Global:MsgStyles = @{
     Success  = @{ Icon = '✅'; Color = 'Green' }
     Warning  = @{ Icon = '⚠️'; Color = 'Yellow' }

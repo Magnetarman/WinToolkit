@@ -109,7 +109,9 @@ function WinBackupDriver {
 
         if ($compressionSucceeded -eq $true -and (Test-Path $archivePath -PathType Leaf)) {
             $compressedSizeMB  = [Math]::Round((Get-Item $archivePath).Length / 1MB, 2)
-            $compressionRatio  = [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1)
+            # A payload of a few KB rounds $totalSizeMB to 0 (2 decimals on /1MB), which
+            # would make the ratio below divide by zero and abort the whole backup.
+            $compressionRatio  = if ($totalSizeMB -gt 0) { [Math]::Round((1 - $compressedSizeMB / $totalSizeMB) * 100, 1) } else { 0 }
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.compressionCompleted0MbReduction1' -Args @($compressedSizeMB, $compressionRatio))
             return $archivePath
         }

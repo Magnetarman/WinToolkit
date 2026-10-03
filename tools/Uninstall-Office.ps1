@@ -247,7 +247,7 @@ function Uninstall-Office {
                         $spinnerIndex = 0
                         while ((Get-Process -Name $blockingProcesses -ErrorAction SilentlyContinue) -and ((Get-Date) - $waitStart).TotalSeconds -lt 2700) {
                             $elapsed = [math]::Round(((Get-Date) - $waitStart).TotalSeconds, 1)
-                            $spinner = if ($Global:Spinners) { $Global:Spinners[$spinnerIndex++ % $Global:Spinners.Length] } else { '' }
+                            $spinner = Get-SpinnerChar -Index ([ref]$spinnerIndex)
                             Write-ProgressUpdate -Activity (Get-SourceTextLoc 'toolText.removingOffice') -Status (Get-SourceTextLoc 'toolText.inProgress0Seconds' -Args @($elapsed)) -Percent 90 -Icon '⏳' -Spinner $spinner
                             Start-Sleep -Milliseconds 500
                         }

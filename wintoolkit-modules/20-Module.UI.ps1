@@ -139,6 +139,29 @@ function Write-ProgressUpdate {
 }
 
 
+function Get-SpinnerChar {
+    <#
+    .SYNOPSIS
+        Returns the next spinner frame, advancing the caller's index by reference.
+    .DESCRIPTION
+        DRY/safe accessor for $Global:Spinners. Every spinner loop indexes the frame
+        set with '% $Global:Spinners.Length': if the array is missing or empty that
+        modulo evaluates Length as 0 and throws 'Attempted to divide by zero.',
+        aborting the operation it was meant to animate. This helper degrades to an
+        empty string instead, so a missing frame set never breaks a real operation.
+    .PARAMETER Index
+        Reference to the caller's spinner counter; incremented on each call.
+    #>
+    param([ref]$Index)
+
+    if (-not $Global:Spinners -or $Global:Spinners.Length -eq 0) { return '' }
+
+    $position = $Index.Value % $Global:Spinners.Length
+    $Index.Value++
+    return $Global:Spinners[$position]
+}
+
+
 function Show-Header {
     <#
     .SYNOPSIS
