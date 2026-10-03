@@ -140,3 +140,139 @@ Describe 'start.ps1 contract' {
         $text | Should -Match '\[WinToolkit\] result=\d+'
     }
 }
+
+Describe 'launcher diagnostic log and gate pause' {
+
+    BeforeAll {
+        # The launcher is a script, not a module, and the file-level BeforeAll
+        # dot-sources only its FUNCTION definitions. The log writer reads two
+        # top-level variables of the launcher, so their real assignments are
+        # extracted from the file and evaluated here: the test then runs against
+        # the values that actually ship, not against copies kept in sync by hand.
+        $launcherAst = [System.Management.Automation.Language.Parser]::ParseFile($script:launcherPath, [ref]$null, [ref]$null)
+        foreach ($assignment in $launcherAst.FindAll(
+                { param($node)
+                    $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    @('$CoreScriptUrl', '$script:LauncherResultCodes') -contains $node.Left.Extent.Text
+                }, $true)) {
+            . ([scriptblock]::Create($assignment.Extent.Text))
+        }
+        $script:LauncherResultCodes | Should -Not -BeNullOrEmpty
+        $CoreScriptUrl | Should -Not -BeNullOrEmpty
+    }
+
+    BeforeEach {
+        $script:logDir = Join-Path $env:TEMP ('wt-launcher-' + [guid]::NewGuid().ToString('N'))
+        $null = New-Item -Path $script:logDir -ItemType Directory -Force
+    }
+
+    AfterEach {
+        Remove-Item -LiteralPath $script:logDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It 'Get-LauncherLogPath returns a .log path under the WinToolkit logs folder' {
+        $path = Get-LauncherLogPath
+        $path | Should -Not -BeNullOrEmpty
+        $path | Should -BeLike '*\WinToolkit\logs\WinToolkitLauncher_*.log'
+        $path | Should -BeLike '*_*_*.log'
+    }
+
+    It 'Get-LauncherLogPath creates the log folder when it is missing' {
+        $expectedDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\logs'
+        $existed = Test-Path -LiteralPath $expectedDir
+        try {
+            if ($existed) { Remove-Item -LiteralPath $expectedDir -Recurse -Force -ErrorAction SilentlyContinue }
+
+            $path = Get-LauncherLogPath
+            $path | Should -Not -BeNullOrEmpty
+            Test-Path -LiteralPath $expectedDir | Should -BeTrue
+        }
+        finally {
+            if ($existed) { $null = New-Item -Path $expectedDir -ItemType Directory -Force -ErrorAction SilentlyContinue }
+        }
+    }
+
+    It 'Write-LauncherLog appends the lines to the file' {
+        $file = Join-Path $script:logDir 'probe.log'
+        Write-LauncherLog -Path $file -Line @('first line', 'second line')
+
+        $content = Get-Content -LiteralPath $file
+        $content | Should -Contain 'first line'
+        $content | Should -Contain 'second line'
+    }
+
+    It 'Write-LauncherLog is a no-op and never throws on an unwritable path' {
+        { Write-LauncherLog -Path (Join-Path $script:logDir 'missing\dir\probe.log') -Line @('x') } |
+            Should -Not -Throw
+        # An empty path is the "log unavailable" contract, not an error.
+        { Write-LauncherLog -Path $null -Line @('x') } | Should -Not -Throw
+        { Write-LauncherLog -Path (Join-Path $script:logDir 'probe.log') -Line @() } | Should -Not -Throw
+    }
+
+    It 'the log header records the identity context and the executed artifact' {
+        $file = Join-Path $script:logDir 'header.log'
+        $support = Get-InteractiveUserSupport
+        Write-LauncherLogHeader -Support $support -Path $file
+
+        $content = (Get-Content -LiteralPath $file) -join "`n"
+        $content | Should -Match '\[START WINTOOLKIT LAUNCHER\]'
+        $content | Should -Match 'SignedInUser\s*:'
+        $content | Should -Match 'RunningAs\s*:'
+        $content | Should -Match 'LocalAdmin\s*:'
+        $content | Should -Match 'Supported\s*:'
+        # The URL is what makes "the user ran an artifact I did not build" visible.
+        $content | Should -Match 'CoreUrl\s*:.*start-core\.ps1'
+    }
+
+    It 'the gate appends the refusal reason and the result code to the log' {
+        $file = Join-Path $script:logDir 'gate.log'
+        $refused = [pscustomobject]@{
+            CurrentUser        = 'HOST\Someone'
+            InteractiveUser    = 'HOST\User'
+            InteractiveIsAdmin = $false
+            SameAccount        = $true
+            Supported          = $false
+            Reason             = 'NotLocalAdministrator'
+        }
+
+        # The gate ends with exit, so only the log writer is exercised here: the
+        # refusal must be recorded even though the process is about to terminate.
+        Write-LauncherLog -Path $file -Line @(
+            '[GATE] Refused: unsupported configuration. Nothing has been installed.'
+            ('[GATE] Reason        : {0}' -f $refused.Reason)
+            ('[GATE] result        : {0}' -f $script:LauncherResultCodes.UnsupportedInteractiveUser)
+        )
+
+        $content = (Get-Content -LiteralPath $file) -join "`n"
+        $content | Should -Match 'NotLocalAdministrator'
+        $content | Should -Match "result\s*:\s*$($script:LauncherResultCodes.UnsupportedInteractiveUser)"
+    }
+
+    It 'the gate waits for a keypress before exiting, and only on an interactive console' {
+        $content = Get-Content -Raw -LiteralPath $script:launcherPath
+
+        # The pause must be guarded by IsInputRedirected, exactly like the Defender
+        # prompt: in CI, a scheduled task or irm|iex there is no console to hold
+        # open, and an unguarded Read-Host would hang the run forever.
+        $content | Should -Match 'if\s*\(-not\s*\[Console\]::IsInputRedirected\)\s*\{\s*\r?\n\s*\$null\s*=\s*Read-Host'
+        $content | Should -Match "Read-Host -Prompt 'Premi INVIO per chiudere'"
+
+        # ... and it must be before the exit, otherwise the window still closes.
+        $pauseIndex = $content.IndexOf('Premi INVIO per chiudere')
+        $exitIndex = $content.LastIndexOf('exit 0')
+        $pauseIndex | Should -BeGreaterThan 0
+        $exitIndex | Should -BeGreaterThan $pauseIndex
+    }
+
+    It 'the launcher creates the log before the gate runs' {
+        $content = Get-Content -Raw -LiteralPath $script:launcherPath
+
+        # A refused run is the case that leaves no other evidence, so the log has
+        # to exist before the gate can decide to stop.
+        $logIndex = $content.IndexOf('$launcherLogPath = Get-LauncherLogPath')
+        $gateIndex = $content.IndexOf('Write-InteractiveUserSupport -Support $support -LogPath $launcherLogPath')
+        $logIndex | Should -BeGreaterThan 0
+        $gateIndex | Should -BeGreaterThan $logIndex
+    }
+}
