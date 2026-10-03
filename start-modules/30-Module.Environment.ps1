@@ -464,6 +464,14 @@ function Invoke-StopUpdateServices {
     <#
     .SYNOPSIS
     Temporarily suspends Windows Update and related services to avoid conflicts with Winget.
+
+    .DESCRIPTION
+    Only the services in their STANDARD ACTIVE state (running, with the automatic
+    startup type) are suspended: those are the ones that conflict with the AppX
+    and WinGet installs. A service the administrator already disabled, stopped or
+    set to manual is left completely untouched, here and at restore time, and the
+    snapshot records that decision (InScope) so a recovery after a crash restores
+    exactly what was touched, and nothing else.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param()
@@ -477,16 +485,27 @@ function Invoke-StopUpdateServices {
     $savedServices = @(
         Get-Service -Name $script:AppConfig.UpdateServices -ErrorAction SilentlyContinue |
             ForEach-Object {
+                # Payloads written by older versions stored the CIM StartMode name.
+                $startupType = [string]$_.StartType
+                if ($startupType -eq 'Auto') { $startupType = 'Automatic' }
                 [pscustomobject]@{
                     Name      = $_.Name
                     Status    = [string]$_.Status
-                    StartType = [string]$_.StartType
+                    StartType = $startupType
+                    InScope   = ([string]$_.Status -eq 'Running' -and $startupType -eq 'Automatic')
                 }
             }
     )
 
+    $inScope = @($savedServices | Where-Object { $_.InScope })
+    foreach ($outOfScope in @($savedServices | Where-Object { -not $_.InScope })) {
+        # The administrator's own choice, recorded so the restore leaves it alone
+        # too. A service left in a non-standard state is not a failure.
+        Write-ToolkitLog -Level 'INFO' -Message "Service $($outOfScope.Name) left untouched: $($outOfScope.Status)/$($outOfScope.StartType) (not a standard active state)."
+    }
+
     $status = @{
-        Version    = 1
+        Version    = 2
         State      = 'Suspending'
         LastError  = $null
         Services   = $savedServices
@@ -494,14 +513,19 @@ function Invoke-StopUpdateServices {
     }
     Write-UpdateServicesStatus -Status $status
 
+    if ($inScope.Count -eq 0) {
+        # Nothing to suspend: the run must not leave a pending restore behind.
+        Write-ToolkitLog -Level 'INFO' -Message 'No Windows Update service is in a standard active state: nothing to suspend.'
+        Set-UpdateServicesState -Status $status -State 'Restored'
+        return
+    }
+
     try {
-        foreach ($saved in $savedServices) {
-            if ($saved.Status -ne 'Stopped') {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.serviceStop0' -Args @($saved.Name))
-                Stop-Service -Name $saved.Name -Force -ErrorAction Stop
-                $current = Get-Service -Name $saved.Name -ErrorAction Stop
-                if ($current.Status -ne 'Stopped') { throw "Service $($saved.Name) did not stop." }
-            }
+        foreach ($saved in $inScope) {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.serviceStop0' -Args @($saved.Name))
+            Stop-Service -Name $saved.Name -Force -ErrorAction Stop
+            $current = Get-Service -Name $saved.Name -ErrorAction Stop
+            if ($current.Status -ne 'Stopped') { throw "Service $($saved.Name) did not stop." }
         }
         Set-UpdateServicesState -Status $status -State 'Suspended'
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesSuccessfullySuspended')
@@ -516,7 +540,7 @@ function Invoke-StopUpdateServices {
 function Invoke-StartUpdateServices {
     <#
     .SYNOPSIS
-    Restores Windows Update and related services.
+    Restores the Windows Update services this run suspended.
 
     .DESCRIPTION
     The startup type is restored from what Get-Service reported (PS7 exposes
@@ -532,23 +556,46 @@ function Invoke-StartUpdateServices {
 
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resettingWindowsUpdateServices')
     $restoreErrors = @()
+    $unmanagedNotes = @()
+    $restored = 0
+
     foreach ($saved in @($status.Services)) {
+        # Unknown/older payloads stored the CIM StartMode name instead.
+        $startupType = switch ($saved.StartType) {
+            'Auto' { 'Automatic' }
+            'Disabled' { 'Disabled' }
+            default { $saved.StartType }
+        }
+
+        # A payload written before InScope existed carries no decision: it is
+        # recomputed from the recorded state, which is what the old code acted on.
+        $inScope = if ($saved.PSObject.Properties.Name -contains 'InScope') {
+            [bool]$saved.InScope
+        }
+        else {
+            ([string]$saved.Status -eq 'Running' -and $startupType -eq 'Automatic')
+        }
+
+        # Not managed by this run: never written, only observed. The old code
+        # re-applied the recorded state here, which is how a service the system
+        # had started on its own ended up being stopped again, and reported as a
+        # failed restore.
+        if (-not $inScope) {
+            $observed = Get-Service -Name $saved.Name -ErrorAction SilentlyContinue
+            if ($observed -and [string]$observed.Status -ne [string]$saved.Status) {
+                $unmanagedNotes += "$($saved.Name) is now $($observed.Status), it was $($saved.Status) and was not managed by this run"
+            }
+            continue
+        }
+
+        $restored++
         try {
             $service = Get-Service -Name $saved.Name -ErrorAction Stop
-            # Unknown/older payloads stored the CIM StartMode name instead.
-            $startupType = switch ($saved.StartType) {
-                'Auto' { 'Automatic' }
-                'Disabled' { 'Disabled' }
-                default { $saved.StartType }
-            }
             Set-Service -Name $saved.Name -StartupType $startupType -ErrorAction Stop
 
             if ($saved.Status -eq 'Running' -and $service.Status -ne 'Running') {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingService0' -Args @($saved.Name))
                 Start-Service -Name $saved.Name -ErrorAction Stop
-            }
-            elseif ($saved.Status -eq 'Stopped' -and $service.Status -ne 'Stopped') {
-                Stop-Service -Name $saved.Name -Force -ErrorAction Stop
             }
         }
         catch {
@@ -556,29 +603,24 @@ function Invoke-StartUpdateServices {
         }
     }
 
+    foreach ($note in $unmanagedNotes) {
+        Write-ToolkitLog -Level 'INFO' -Message "Service not managed by this run: $note."
+    }
+
     if ($restoreErrors.Count -gt 0) {
-        $dosvcErrors = @($restoreErrors | Where-Object { $_ -match '^dosvc:' })
-        $otherErrors = @($restoreErrors | Where-Object { $_ -notmatch '^dosvc:' })
-
-        if ($otherErrors.Count -gt 0) {
-            Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($otherErrors -join '; ')
-            Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
-            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
-            return $false
-        }
-
-        if ($dosvcErrors.Count -gt 0) {
-            # dosvc refuses to start on some Windows builds: a known limitation, not a failure.
-            Set-UpdateServicesState -Status $status -State 'Restored'
-            # $dosvcErrors is an array: it must be joined INSIDE the subexpression,
-            # otherwise the literal "-join" text ends up in the log line.
-            $dosvcDetail = $dosvcErrors -join '; '
-            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcDetail"
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
-        }
+        # Only a service this run actually stopped can fail here. The dosvc
+        # special case is gone with the reason for it: dosvc is not in
+        # $script:AppConfig.UpdateServices any more, so it can never be suspended.
+        Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($restoreErrors -join '; ')
+        Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
+        return $false
     }
 
     Set-UpdateServicesState -Status $status -State 'Restored'
+    if ($restored -eq 0) {
+        Write-ToolkitLog -Level 'INFO' -Message 'No suspended Windows Update service to restore.'
+    }
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesRestored')
     return $true
 }

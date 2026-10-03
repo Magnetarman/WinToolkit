@@ -194,6 +194,49 @@ function Get-ToolkitUserFolderPath {
 }
 
 
+function Test-ToolkitPathBelongsToInteractiveUser {
+    <#
+    .SYNOPSIS
+    Returns $true when a resolved user path is inside the signed-in profile.
+
+    .DESCRIPTION
+    A known folder can resolve to a path of a different account: the Documents
+    value of the administrator profile, a redirected or stale "User Shell
+    Folders" entry, a profile relocated outside C:\Users. The steps that write
+    there check this BEFORE writing, so a run that would personalize the wrong
+    profile is reported instead of quietly succeeding. It never blocks: the
+    answer is a warning, and the caller decides.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $context = Get-ToolkitOriginalUserContext
+    $root = if ($context.AccountSwitched -and $context.UserProfile) { $context.UserProfile } else { $env:USERPROFILE }
+    if (-not $root) {
+        # Nothing to compare against: report success rather than a false alarm.
+        return $true
+    }
+
+    try {
+        $fullPath = [System.IO.Path]::GetFullPath($Path)
+        $fullRoot = [System.IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Could not compare '$Path' with the user profile: $($_.Exception.Message)"
+        return $true
+    }
+
+    $belongs = $fullPath.StartsWith($fullRoot, [System.StringComparison]::OrdinalIgnoreCase)
+    if (-not $belongs) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Resolved path '$fullPath' is outside the signed-in profile '$fullRoot'."
+    }
+    return $belongs
+}
+
+
 function Test-FileHasMinimumSize {
     <#
     .SYNOPSIS

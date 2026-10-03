@@ -4,7 +4,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $script:Branch = 'Dev'
-$ToolkitVersion = "2.6.0 (Build 5)"
+$ToolkitVersion = "Work In Progress"
 $GitHubRepoRawBase = @{
     Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev"
     main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main"
@@ -648,29 +648,39 @@ function Invoke-StopUpdateServices {
     $savedServices = @(
         Get-Service -Name $script:AppConfig.UpdateServices -ErrorAction SilentlyContinue |
             ForEach-Object {
+                $startupType = [string]$_.StartType
+                if ($startupType -eq 'Auto') { $startupType = 'Automatic' }
                 [pscustomobject]@{
                     Name      = $_.Name
                     Status    = [string]$_.Status
-                    StartType = [string]$_.StartType
+                    StartType = $startupType
+                    InScope   = ([string]$_.Status -eq 'Running' -and $startupType -eq 'Automatic')
                 }
             }
     )
+    $inScope = @($savedServices | Where-Object { $_.InScope })
+    foreach ($outOfScope in @($savedServices | Where-Object { -not $_.InScope })) {
+        Write-ToolkitLog -Level 'INFO' -Message "Service $($outOfScope.Name) left untouched: $($outOfScope.Status)/$($outOfScope.StartType) (not a standard active state)."
+    }
     $status = @{
-        Version    = 1
+        Version    = 2
         State      = 'Suspending'
         LastError  = $null
         Services   = $savedServices
         CreatedUtc = [DateTime]::UtcNow.ToString('o')
     }
     Write-UpdateServicesStatus -Status $status
+    if ($inScope.Count -eq 0) {
+        Write-ToolkitLog -Level 'INFO' -Message 'No Windows Update service is in a standard active state: nothing to suspend.'
+        Set-UpdateServicesState -Status $status -State 'Restored'
+        return
+    }
     try {
-        foreach ($saved in $savedServices) {
-            if ($saved.Status -ne 'Stopped') {
-                Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.serviceStop0' -Args @($saved.Name))
-                Stop-Service -Name $saved.Name -Force -ErrorAction Stop
-                $current = Get-Service -Name $saved.Name -ErrorAction Stop
-                if ($current.Status -ne 'Stopped') { throw "Service $($saved.Name) did not stop." }
-            }
+        foreach ($saved in $inScope) {
+            Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.serviceStop0' -Args @($saved.Name))
+            Stop-Service -Name $saved.Name -Force -ErrorAction Stop
+            $current = Get-Service -Name $saved.Name -ErrorAction Stop
+            if ($current.Status -ne 'Stopped') { throw "Service $($saved.Name) did not stop." }
         }
         Set-UpdateServicesState -Status $status -State 'Suspended'
         Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesSuccessfullySuspended')
@@ -686,44 +696,53 @@ function Invoke-StartUpdateServices {
     if (-not $status -or $status.State -eq 'Restored') { return $true }
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.resettingWindowsUpdateServices')
     $restoreErrors = @()
+    $unmanagedNotes = @()
+    $restored = 0
     foreach ($saved in @($status.Services)) {
+        $startupType = switch ($saved.StartType) {
+            'Auto' { 'Automatic' }
+            'Disabled' { 'Disabled' }
+            default { $saved.StartType }
+        }
+        $inScope = if ($saved.PSObject.Properties.Name -contains 'InScope') {
+            [bool]$saved.InScope
+        }
+        else {
+            ([string]$saved.Status -eq 'Running' -and $startupType -eq 'Automatic')
+        }
+        if (-not $inScope) {
+            $observed = Get-Service -Name $saved.Name -ErrorAction SilentlyContinue
+            if ($observed -and [string]$observed.Status -ne [string]$saved.Status) {
+                $unmanagedNotes += "$($saved.Name) is now $($observed.Status), it was $($saved.Status) and was not managed by this run"
+            }
+            continue
+        }
+        $restored++
         try {
             $service = Get-Service -Name $saved.Name -ErrorAction Stop
-            $startupType = switch ($saved.StartType) {
-                'Auto' { 'Automatic' }
-                'Disabled' { 'Disabled' }
-                default { $saved.StartType }
-            }
             Set-Service -Name $saved.Name -StartupType $startupType -ErrorAction Stop
             if ($saved.Status -eq 'Running' -and $service.Status -ne 'Running') {
                 Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingService0' -Args @($saved.Name))
                 Start-Service -Name $saved.Name -ErrorAction Stop
-            }
-            elseif ($saved.Status -eq 'Stopped' -and $service.Status -ne 'Stopped') {
-                Stop-Service -Name $saved.Name -Force -ErrorAction Stop
             }
         }
         catch {
             $restoreErrors += "$($saved.Name): $($_.Exception.Message)"
         }
     }
+    foreach ($note in $unmanagedNotes) {
+        Write-ToolkitLog -Level 'INFO' -Message "Service not managed by this run: $note."
+    }
     if ($restoreErrors.Count -gt 0) {
-        $dosvcErrors = @($restoreErrors | Where-Object { $_ -match '^dosvc:' })
-        $otherErrors = @($restoreErrors | Where-Object { $_ -notmatch '^dosvc:' })
-        if ($otherErrors.Count -gt 0) {
-            Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($otherErrors -join '; ')
-            Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
-            Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
-            return $false
-        }
-        if ($dosvcErrors.Count -gt 0) {
-            Set-UpdateServicesState -Status $status -State 'Restored'
-            $dosvcDetail = $dosvcErrors -join '; '
-            Write-ToolkitLog -Level 'WARNING' -Message "Windows Update service dosvc could not be restored (known Windows limitation): $dosvcDetail"
-            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.dosvcNotRestoredKnownLimitation')
-        }
+        Set-UpdateServicesState -Status $status -State 'RestoreFailed' -LastError ($restoreErrors -join '; ')
+        Write-ToolkitLog -Level 'ERROR' -Message "Unable to restore Windows Update services: $($status.LastError)"
+        Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.updateServicesRestoreIncomplete0' -Args @($status.LastError))
+        return $false
     }
     Set-UpdateServicesState -Status $status -State 'Restored'
+    if ($restored -eq 0) {
+        Write-ToolkitLog -Level 'INFO' -Message 'No suspended Windows Update service to restore.'
+    }
     Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.updateServicesRestored')
     return $true
 }
@@ -1721,6 +1740,9 @@ function Install-PspEnvironment {
     try {
         $paths = Resolve-ToolkitPowerShellProfileDirectory
         Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile directory resolved: $($paths.ProfileDirectory)"
+        if (-not (Test-ToolkitPathBelongsToInteractiveUser -Path $paths.ProfileDirectory)) {
+            Write-StyledMessage -Type Warning -Text (Get-SourceTextLoc 'uiText.elevationSwitchedAccount0' -Args @($context.OriginalUser, $context.CurrentUser))
+        }
     }
     catch {
         Write-StyledMessage -Type Error -Text (Get-SourceTextLoc 'uiText.profileDirectoryUnavailable0' -Args @($_.Exception.Message))
@@ -1815,6 +1837,9 @@ function New-ToolkitDesktopShortcut {
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.desktopShortcutCreation')
     try {
         $desktop = Get-ToolkitUserFolderPath -Kind 'Desktop'
+    if (-not (Test-ToolkitPathBelongsToInteractiveUser -Path $desktop)) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Desktop shortcut target belongs to another account: $desktop"
+    }
         $shortcut = Join-Path $desktop "Win Toolkit.lnk"
         $iconDir = $script:AppConfig.Paths.WinToolkitDir
         $icon = Join-Path $iconDir "WinToolkit.ico"
@@ -1956,6 +1981,31 @@ function Get-ToolkitUserFolderPath {
         }
     }
     throw "Unable to resolve a usable '$Kind' known folder for user '$($context.CurrentUser)'."
+}
+function Test-ToolkitPathBelongsToInteractiveUser {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+    $context = Get-ToolkitOriginalUserContext
+    $root = if ($context.AccountSwitched -and $context.UserProfile) { $context.UserProfile } else { $env:USERPROFILE }
+    if (-not $root) {
+        return $true
+    }
+    try {
+        $fullPath = [System.IO.Path]::GetFullPath($Path)
+        $fullRoot = [System.IO.Path]::GetFullPath($root).TrimEnd('\') + '\'
+    }
+    catch {
+        Write-ToolkitLog -Level 'WARNING' -Message "Could not compare '$Path' with the user profile: $($_.Exception.Message)"
+        return $true
+    }
+    $belongs = $fullPath.StartsWith($fullRoot, [System.StringComparison]::OrdinalIgnoreCase)
+    if (-not $belongs) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Resolved path '$fullPath' is outside the signed-in profile '$fullRoot'."
+    }
+    return $belongs
 }
 function Test-FileHasMinimumSize {
     param(
@@ -2451,6 +2501,8 @@ function Invoke-WinToolkitSetup {
         Show-Header -Title $script:AppConfig.Header.Title -Version $script:AppConfig.Header.Version
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.powershell0' -Args @($PSVersionTable.PSVersion))
         Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.startingWinToolkitSetup')
+        $identityContext = Get-ToolkitOriginalUserContext
+        Write-ToolkitLog -Level 'INFO' -Message "Identity: signed-in '$($identityContext.OriginalUser)' | running as '$($identityContext.CurrentUser)' | account switched: $($identityContext.AccountSwitched)."
         $null = Request-DefenderPause
         $steps = @(
             New-SetupStep -Name 'System clock' -Run { Repair-SystemClock }

@@ -285,6 +285,67 @@ pre-release workflow delegates versioning and both artifact builds.
 
 `start.ps1` is an ASCII-safe launcher. It locates/elevates PowerShell 7 and downloads or executes `start-core.ps1`. The core is generated from the ordered fragments in `start-modules/` by `.github/scripts/Invoke-Build-Start.ps1` and validated by `.github/scripts/Test-CompiledStartScript.ps1`.
 
+### Supported configuration and result codes
+
+Every user-scoped artifact (PowerShell profile, Oh My Posh theme, Windows Terminal settings, desktop shortcut) is written under the account that **runs the process**. A standard account that elevates itself with administrator credentials would therefore receive a log full of successes and, after the reboot, a machine that looks untouched.
+
+The launcher therefore accepts one configuration only, and checks it **before** touching anything (before Defender, before installing PowerShell 7):
+
+| Check | Source |
+| ----- | ------ |
+| Signed-in account | `Win32_ComputerSystem.UserName` (console session owner) |
+| It is a local administrator | membership of the group returned by `Get-LocalGroup -SID S-1-5-32-544`, compared by SID, with a `net.exe localgroup` fallback for nested domain groups |
+| It is the account running the script | short name comparison against `WindowsIdentity.GetCurrent()` |
+
+| Outcome | Reported |
+| ------- | -------- |
+| Supported | `[WinToolkit] result=0` |
+| Signed-in account is not a local administrator | `result=4`, `reason=NotLocalAdministrator` |
+| Running under a different account than the signed-in one | `result=4`, `reason=AccountMismatch` |
+
+`start.ps1` always exits with process code **0** (an unsupported machine is a guided
+condition, not an error) and prints the dedicated code on a greppable line, so an
+automated invocation stays green while still being able to tell the two apart.
+`start-core.ps1` keeps its own contract: `0` success, `2` partial success,
+`1` blocking error.
+
+The `WTOOLKIT_ORIGINAL_*` mechanism stays for the legitimate case of an
+administrator elevating with a *different* administrator account: the launcher
+exports the signed-in identity and paths, and the core writes the user-scoped
+artifacts there.
+
+### PowerShell 7 version policy
+
+A PowerShell 7 that is merely present is not accepted as final: the banner
+*"A new PowerShell stable release is available"* is exactly what an outdated
+build produces. The launcher therefore, when it finds an existing PowerShell 7:
+
+1. runs `winget upgrade --id Microsoft.PowerShell --exact --silent` (WinGet
+   decides on its own whether an update exists);
+2. re-resolves `pwsh`, because the running host keeps the bits it already
+   loaded and the new build applies from the next session;
+3. falls back to comparing the installed version with the
+   PowerShell `releases/latest` feed, reporting the gap without changing
+   anything when WinGet is unavailable.
+
+`-PrintContext` is the diagnostic switch: it prints the detected identity
+context and the result code, and exits without installing anything.
+
+### Windows Update service scope
+
+`wuauserv` and `bits` are suspended only when they are in their **standard active
+state** (running, automatic startup type) — the only state that conflicts with
+the AppX and WinGet installs. A service the administrator already disabled,
+stopped or set to manual is left completely untouched, at suspend and at restore
+time, and the snapshot records that decision (`InScope`) so a recovery after a
+crash restores exactly what was touched.
+
+The restore never re-applies the recorded state to a service it did not stop:
+the previous behaviour stopped a service the system had started on its own
+during the run and reported the refusal as *"Windows Update services restore
+incomplete"*. A service it does not own that changes state is reported as
+information. Only a service this run stopped can make the restore fail.
+
 Compiled artifacts are **machine-only**: they are read by the PowerShell host, never by a
 human or an AI reviewer, so they must stay as compact as possible. The build therefore
 never reformats them — no blank-line injection, no comment restoration, no re-reading of

@@ -40,6 +40,11 @@ function New-ToolkitDesktopShortcut {
 
     try {
         $desktop = Get-ToolkitUserFolderPath -Kind 'Desktop'
+    # The desktop is user-scoped: a shortcut created in another account's desktop
+    # is reported as created and never seen by the signed-in user.
+    if (-not (Test-ToolkitPathBelongsToInteractiveUser -Path $desktop)) {
+        Write-ToolkitLog -Level 'WARNING' -Message "Desktop shortcut target belongs to another account: $desktop"
+    }
         $shortcut = Join-Path $desktop "Win Toolkit.lnk"
         $iconDir = $script:AppConfig.Paths.WinToolkitDir
         $icon = Join-Path $iconDir "WinToolkit.ico"
