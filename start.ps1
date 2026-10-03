@@ -257,6 +257,63 @@ function Get-InteractiveUserSupport {
 }
 
 
+function Get-LauncherLogPath {
+    <#
+    .SYNOPSIS
+    Returns the path of the launcher diagnostic log, or $null when it cannot be created.
+
+    .DESCRIPTION
+    The file name reuses the scheme of the core logger (10-Module.Logging.ps1:
+    <Tool>_<yyyyMMdd-HHmmss>_<pid>.log) and the same folder, so a user asked to
+    send their logs ends up with one consistent set of files.
+
+    The launcher runs BEFORE elevation and is the only script that still has to
+    work on a machine where nothing is installed yet, so every failure here is
+    swallowed: a log that cannot be created must never be the reason the launcher
+    stops working.
+    #>
+    try {
+        $logDir = Join-Path $env:LOCALAPPDATA 'WinToolkit\logs'
+        if (-not (Test-Path -LiteralPath $logDir)) {
+            $null = New-Item -Path $logDir -ItemType Directory -Force -ErrorAction Stop
+        }
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        return (Join-Path $logDir "WinToolkitLauncher_${stamp}_$PID.log")
+    }
+    catch {
+        Write-Verbose "Launcher log unavailable: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+
+function Write-LauncherLog {
+    <#
+    .SYNOPSIS
+    Appends lines to the launcher log, on a best-effort basis.
+
+    .DESCRIPTION
+    Never throws and never writes to the console: the log is a diagnostic aid,
+    and a read-only or missing folder must degrade to "no log" instead of
+    breaking the launcher the user is trying to run.
+    #>
+    param(
+        [AllowNull()][string]$Path,
+        [AllowEmptyCollection()][string[]]$Line
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    if (-not $Line) { return }
+
+    try {
+        Add-Content -LiteralPath $Path -Value $Line -Encoding UTF8 -ErrorAction Stop
+    }
+    catch {
+        Write-Verbose "Launcher log write failed: $($_.Exception.Message)"
+    }
+}
+
+
 function Write-InteractiveUserSupport {
     <#
     .SYNOPSIS
