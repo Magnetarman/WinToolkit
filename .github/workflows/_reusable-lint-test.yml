@@ -289,7 +289,8 @@ jobs:
           # loading them there is not a missing test, it is a suite that cannot run.
           $requiredFolders = @(
             @{ Path = '.github/tests/CI-Smoke.Tests.ps1';                 Root = 'wintoolkit-modules' },
-            @{ Path = '.github/tests/Unit/Tools.Contract.Tests.ps1';       Root = 'tools' }
+            @{ Path = '.github/tests/Unit/Tools.Contract.Tests.ps1';       Root = 'tools' },
+            @{ Path = '.github/tests/Unit/WinDeleteUserProfiles.Tests.ps1'; Root = 'tools' }
           )
           $suitePaths = @(
             $requiredFolders |
