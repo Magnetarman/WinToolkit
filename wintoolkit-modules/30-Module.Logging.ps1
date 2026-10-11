@@ -34,9 +34,7 @@ function Start-ToolkitLog {
     $serVer = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
 
     $build = [int]$os.BuildNumber
-    $verMap = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
-    $dispVer = 'N/A'
-    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
+    $dispVer = Get-WindowsDisplayVersion -Build $build
 
     $header = @"
 [START LOG HEADER]
