@@ -65,6 +65,7 @@ body:
       label: Windows OS Version
       description: Which Windows version?
       options:
+        - Windows 11 26H2
         - Windows 11 25H2
         - Windows 11 24H2
         - Windows 11 23H2
