@@ -708,7 +708,7 @@ function Get-BitlockerStatus {
         return (Get-SourceTextLoc 'bitlocker.status.off')
     }
 }
-function Get-SourceTextLocalUserProfiles {
+function Get-LocalUserProfiles {
     return Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -notmatch '^(Public|Default|Default User|All Users)$' }
 }
