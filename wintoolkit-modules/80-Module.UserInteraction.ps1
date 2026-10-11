@@ -98,14 +98,16 @@ function WinOSCheck {
 
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.system01' -Args @($($si.ProductName), $($si.DisplayVersion)))
 
-    if ($si.BuildNumber -ge 22000) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemRecentWin1110') }
-    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemWin10') }
-    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windows81PartialCompatibility') }
-    else {
-        Write-StyledMessage -Type 'Error' -Text "$(Get-CenteredText ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
-        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
-        Write-Host ("  " + (Get-SourceTextLoc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
-        if ((Read-Host) -notmatch '^[Yy]$') { exit }
+    switch ($si.Compatibility) {
+        'Windows11'    { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemRecentWin1110') }
+        'Windows10'    { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemWin10') }
+        'Windows81'    { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windows81PartialCompatibility') }
+        default {
+            Write-StyledMessage -Type 'Error' -Text "$(Get-CenteredText ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
+            Write-Host ("  " + (Get-SourceTextLoc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
+            if ((Read-Host) -notmatch '^[Yy]$') { exit }
+        }
     }
     Start-Sleep -Seconds 2
 }
