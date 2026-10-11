@@ -3105,7 +3105,7 @@ function WinCleaner {
     }
     function Invoke-CommandAction {
         param($Rule)
-        $displayName = Get-SourceTextLoc $Rule.NameKey
+        $displayName = if ($Rule.NameKey) { Get-SourceTextLoc $Rule.NameKey } else { $Rule.Name }
         Clear-ProgressLine
         Write-StyledMessage -Type 'Info' -Text ("🚀 " + (Get-SourceTextLoc 'toolText.commandExecution0' -Args @($displayName)))
         try {
