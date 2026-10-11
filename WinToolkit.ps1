@@ -576,9 +576,7 @@ function Start-ToolkitLog {
     $remoteVer = if ($PSVersionTable.PSRemotingProtocolVersion) { $PSVersionTable.PSRemotingProtocolVersion.ToString() } else { 'N/A' }
     $serVer = if ($PSVersionTable.SerializationVersion) { $PSVersionTable.SerializationVersion.ToString() } else { 'N/A' }
     $build = [int]$os.BuildNumber
-    $verMap = @{26100 = '24H2'; 22631 = '23H2'; 22621 = '22H2'; 22000 = '21H2'; 19045 = '22H2'; 19044 = '21H2' }
-    $dispVer = 'N/A'
-    foreach ($k in ($verMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $dispVer = $verMap[$k]; break } }
+    $dispVer = Get-WindowsDisplayVersion -Build $build
     $header = @"
 [START LOG HEADER]
 Start time              : $dateTime
@@ -649,25 +647,56 @@ function Write-ToolkitError {
         Stack     = $Record.ScriptStackTrace
     }
 }
+function Get-WindowsDisplayVersion {
+    param([int]$Build = 0)
+    if ($Build -le 0) {
+        try { $Build = [int](Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).BuildNumber } catch { $Build = 0 }
+    }
+    $ntKey = $null
+    try { $ntKey = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue } catch { $ntKey = $null }
+    if ($ntKey) {
+        if ($ntKey.DisplayVersion) {
+            $displayVersion = ([string]$ntKey.DisplayVersion).Trim()
+            if ($displayVersion) { return $displayVersion }
+        }
+        if ($ntKey.ReleaseId -and $Build -lt 22000) {
+            $releaseId = ([string]$ntKey.ReleaseId).Trim()
+            if ($releaseId) { return $releaseId }
+        }
+    }
+    $versionMap = @{
+        28000 = "26H1"; 26300 = "26H2"; 26200 = "25H2"; 26100 = "24H2"
+        22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
+        19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
+        19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
+        17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
+        10586 = "1511"; 10240 = "1507"
+    }
+    foreach ($key in ($versionMap.Keys | Sort-Object -Descending)) {
+        if ($Build -ge $key) { return $versionMap[$key] }
+    }
+    return "N/A"
+}
+function Get-WindowsCompatibility {
+    param([int]$Build)
+    if ($Build -ge 22000) { return 'Windows11' }
+    if ($Build -ge 17763) { return 'Windows10' }
+    if ($Build -eq 9600)   { return 'Windows81' }
+    return 'Unsupported'
+}
 function Get-SystemInfo {
     if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
     try {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
         $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-        $versionMap = @{
-            28000 = "26H1"; 26200 = "25H2"; 26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
-            19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"; 19041 = "2004"; 18363 = "1909"
-            18362 = "1903"; 17763 = "1809"; 17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
-            10586 = "1511"; 10240 = "1507"
-        }
         $build = [int]$osInfo.BuildNumber
-        $ver = "N/A"
-        foreach ($k in ($versionMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
+        $ver = Get-WindowsDisplayVersion -Build $build
         $Global:SystemInfoCache = @{
             ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
             BuildNumber    = $build
             DisplayVersion = $ver
+            Compatibility  = Get-WindowsCompatibility -Build $build
             Architecture   = $osInfo.OSArchitecture
             ComputerName   = $computerInfo.Name
             TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
@@ -1669,14 +1698,16 @@ function WinOSCheck {
     $si = Get-SystemInfo
     if (-not $si) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.systemInfoNotAvailable'); return }
     Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'uiText.system01' -Args @($($si.ProductName), $($si.DisplayVersion)))
-    if ($si.BuildNumber -ge 22000) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemRecentWin1110') }
-    elseif ($si.BuildNumber -ge 17763) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemWin10') }
-    elseif ($si.BuildNumber -eq 9600) { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windows81PartialCompatibility') }
-    else {
-        Write-StyledMessage -Type 'Error' -Text "$(Get-CenteredText ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
-        Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
-        Write-Host ("  " + (Get-SourceTextLoc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
-        if ((Read-Host) -notmatch '^[Yy]$') { exit }
+    switch ($si.Compatibility) {
+        'Windows11'    { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemRecentWin1110') }
+        'Windows10'    { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'uiText.compatibleSystemWin10') }
+        'Windows81'    { Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'uiText.windows81PartialCompatibility') }
+        default {
+            Write-StyledMessage -Type 'Error' -Text "$(Get-CenteredText ('🤣 ' + (Get-SourceTextLoc 'sourceText.criticalError').ToUpperInvariant() + ' 🤣') 65)"
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'uiText.doYouReallyThinkThisScriptCanDoAnythingForThisVersion')
+            Write-Host ("  " + (Get-SourceTextLoc 'uiText.doYouWantToTakeARiskYN')) -ForegroundColor Yellow
+            if ((Read-Host) -notmatch '^[Yy]$') { exit }
+        }
     }
     Start-Sleep -Seconds 2
 }
