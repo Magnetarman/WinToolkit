@@ -84,16 +84,18 @@ Describe 'WinCleaner — Invoke-CommandAction displayName (regression for empty 
 
 Describe 'WinCleaner — Get-LocalUserProfiles (regression for undefined function)' {
 
-    It 'WinCleaner.ps1 must define a Get-LocalUserProfiles helper' {
-        # WinCleaner per-user rules call Get-LocalUserProfiles; if undefined the cleaner
-        # aborts with "Il termine 'Get-LocalUserProfiles' non è riconosciuto" right after
-        # the Windows Update cache step.
-        $source = Get-Content -Path $script:ToolPath -Raw
-        $source | Should -Match 'function Get-LocalUserProfiles\s*\{'
+    It 'Get-LocalUserProfiles is defined by the core and callable at runtime' {
+        # Before the fix the function was undefined, so every per-user rule aborted
+        # WinCleaner with "Il termine 'Get-LocalUserProfiles' non è riconosciuto".
+        # It is provided by the shared core (wintoolkit-modules/40-Module.System.ps1)
+        # and must therefore be available after the template + tool are imported.
+        Get-Command Get-LocalUserProfiles -ErrorAction SilentlyContinue | Should -Not -BeNull
+        { Get-LocalUserProfiles } | Should -Not -Throw
     }
 
-    It 'Get-LocalUserProfiles must delegate to the shared core helper' {
+    It 'WinCleaner references Get-LocalUserProfiles and does not define a local copy' {
         $source = Get-Content -Path $script:ToolPath -Raw
-        $source | Should -Match 'Get-SourceTextLocalUserProfiles'
+        $source | Should -Match 'Get-LocalUserProfiles'
+        $source | Should -Not -Match 'function Get-LocalUserProfiles\s*\{'
     }
 }
