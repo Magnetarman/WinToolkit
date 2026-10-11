@@ -69,6 +69,14 @@ function WinCleaner {
     }
 
 
+    function Get-LocalUserProfiles {
+        if (Get-Command Get-SourceTextLocalUserProfiles -ErrorAction SilentlyContinue) {
+            return Get-SourceTextLocalUserProfiles
+        }
+        return Get-ChildItem -Path 'C:\Users' -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch '^(Public|Default|Default User|All Users)$' }
+    }
+
     function Invoke-CommandAction {
         param($Rule)
         $displayName = if ($Rule.NameKey) { Get-SourceTextLoc $Rule.NameKey } else { $Rule.Name }
