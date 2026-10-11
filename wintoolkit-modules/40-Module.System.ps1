@@ -50,6 +50,25 @@ function Get-WindowsDisplayVersion {
 }
 
 
+function Get-WindowsCompatibility {
+    <#
+    .SYNOPSIS
+        Classifica la compatibilità del sistema operativo a partire dal build number.
+    .DESCRIPTION
+        Mappa il build number in una categoria logica usata da GUI, banner e messaggi
+        di verifica: Windows 11 (build >= 22000), Windows 10 (17763-21999),
+        Windows 8.1 (9600), altrimenti Unsupported. Centralizzata qui così la GUI non
+        deve interpretare il build number e basta un punto di update per nuove release.
+    #>
+    param([int]$Build)
+
+    if ($Build -ge 22000) { return 'Windows11' }
+    if ($Build -ge 17763) { return 'Windows10' }
+    if ($Build -eq 9600)   { return 'Windows81' }
+    return 'Unsupported'
+}
+
+
 function Get-SystemInfo {
     if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
     try {
@@ -63,6 +82,7 @@ function Get-SystemInfo {
             ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
             BuildNumber    = $build
             DisplayVersion = $ver
+            Compatibility  = Get-WindowsCompatibility -Build $build
             Architecture   = $osInfo.OSArchitecture
             ComputerName   = $computerInfo.Name
             TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
