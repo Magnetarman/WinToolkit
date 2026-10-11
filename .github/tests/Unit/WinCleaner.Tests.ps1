@@ -81,3 +81,19 @@ Describe 'WinCleaner — Invoke-CommandAction displayName (regression for empty 
         $source | Should -Match "Name\s*=\s*'Removing Windows\.old \(CleanMgr\)'"
     }
 }
+
+Describe 'WinCleaner — Get-LocalUserProfiles (regression for undefined function)' {
+
+    It 'WinCleaner.ps1 must define a Get-LocalUserProfiles helper' {
+        # WinCleaner per-user rules call Get-LocalUserProfiles; if undefined the cleaner
+        # aborts with "Il termine 'Get-LocalUserProfiles' non è riconosciuto" right after
+        # the Windows Update cache step.
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Match 'function Get-LocalUserProfiles\s*\{'
+    }
+
+    It 'Get-LocalUserProfiles must delegate to the shared core helper' {
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Match 'Get-SourceTextLocalUserProfiles'
+    }
+}
