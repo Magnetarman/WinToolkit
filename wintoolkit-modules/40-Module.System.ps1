@@ -75,7 +75,7 @@ function Get-BitlockerStatus {
 }
 
 
-function Get-SourceTextLocalUserProfiles {
+function Get-LocalUserProfiles {
     <#
     .SYNOPSIS
         Restituisce le directory utente reali, escludendo i profili di sistema.
