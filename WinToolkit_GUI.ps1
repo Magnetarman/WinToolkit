@@ -1884,29 +1884,28 @@ function Update-SystemInformationPanel {
                     Write-UnifiedLog -Type 'Warning' -Message (Get-SourceTextLoc 'uiText.couldNotLoadSomeIcons0' -Args @($($_.Exception.Message))) -GuiColor "#FFA500"
                 }
 
-                # Task 2: Compatibility indicator with colored status text
+                # Task 2: Compatibility indicator with colored status text.
+                # Compatibility is computed by the core (Get-SystemInfo) so the GUI only
+                # renders the already-classified tier and stays version-logic free.
                 $statusText = ""
                 $statusIconKey = "LEDStatusRed"
 
-                if ($sysInfo.BuildNumber -ge 22000) {
-                    $statusText = Get-SourceTextLoc 'gui.complete'
-                    $statusIconKey = "LEDStatusGreen"
-                    $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
-                }
-                elseif ($sysInfo.BuildNumber -ge 17763) {
-                    $statusText = Get-SourceTextLoc 'gui.complete'
-                    $statusIconKey = "LEDStatusGreen"
-                    $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
-                }
-                elseif ($sysInfo.BuildNumber -ge 10240) {
-                    $statusText = Get-SourceTextLoc 'gui.limited'
-                    $statusIconKey = "LEDStatusYellow"
-                    $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
-                }
-                else {
-                    $statusText = Get-SourceTextLoc 'gui.unsupported'
-                    $statusIconKey = "LEDStatusRed"
-                    $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                switch ($sysInfo.Compatibility) {
+                    { $_ -in 'Windows11', 'Windows10' } {
+                        $statusText = Get-SourceTextLoc 'gui.complete'
+                        $statusIconKey = "LEDStatusGreen"
+                        $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::LimeGreen)
+                    }
+                    'Windows81' {
+                        $statusText = Get-SourceTextLoc 'gui.limited'
+                        $statusIconKey = "LEDStatusYellow"
+                        $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Orange)
+                    }
+                    default {
+                        $statusText = Get-SourceTextLoc 'gui.unsupported'
+                        $statusIconKey = "LEDStatusRed"
+                        $SysInfoScriptCompatibility.Foreground = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Colors]::Red)
+                    }
                 }
 
                 $SysInfoScriptCompatibility.Text = $statusText
