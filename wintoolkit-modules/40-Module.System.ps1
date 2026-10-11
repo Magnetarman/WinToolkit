@@ -4,26 +4,85 @@
 # Data collection on the operating system, hardware and security services.
 # ==============================================================================
 
+function Get-WindowsDisplayVersion {
+    <#
+    .SYNOPSIS
+        Restituisce l'etichetta della release di Windows (es. 24H2, 25H2, 26H1, 26H2).
+    .DESCRIPTION
+        Il valore DisplayVersion del registro è la fonte autorevole e resta corretto
+        anche quando una release non segue l'ordine del build number: 26H1 gira su
+        build 28000 mentre 26H2 gira su build 26300. Senza DisplayVersion
+        (Windows 10) si usa ReleaseId, quindi una mappa build-to-version come ultimo
+        fallback, in modo che le versioni future siano riconosciute senza patch.
+    #>
+    param([int]$Build = 0)
+
+    if ($Build -le 0) {
+        try { $Build = [int](Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue).BuildNumber } catch { $Build = 0 }
+    }
+
+    $ntKey = $null
+    try { $ntKey = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue } catch { $ntKey = $null }
+
+    if ($ntKey) {
+        if ($ntKey.DisplayVersion) {
+            $displayVersion = ([string]$ntKey.DisplayVersion).Trim()
+            if ($displayVersion) { return $displayVersion }
+        }
+        if ($ntKey.ReleaseId -and $Build -lt 22000) {
+            $releaseId = ([string]$ntKey.ReleaseId).Trim()
+            if ($releaseId) { return $releaseId }
+        }
+    }
+
+    $versionMap = @{
+        28000 = "26H1"; 26300 = "26H2"; 26200 = "25H2"; 26100 = "24H2"
+        22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
+        19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"
+        19041 = "2004"; 18363 = "1909"; 18362 = "1903"; 17763 = "1809"
+        17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
+        10586 = "1511"; 10240 = "1507"
+    }
+    foreach ($key in ($versionMap.Keys | Sort-Object -Descending)) {
+        if ($Build -ge $key) { return $versionMap[$key] }
+    }
+    return "N/A"
+}
+
+
+function Get-WindowsCompatibility {
+    <#
+    .SYNOPSIS
+        Classifica la compatibilità del sistema operativo a partire dal build number.
+    .DESCRIPTION
+        Mappa il build number in una categoria logica usata da GUI, banner e messaggi
+        di verifica: Windows 11 (build >= 22000), Windows 10 (17763-21999),
+        Windows 8.1 (9600), altrimenti Unsupported. Centralizzata qui così la GUI non
+        deve interpretare il build number e basta un punto di update per nuove release.
+    #>
+    param([int]$Build)
+
+    if ($Build -ge 22000) { return 'Windows11' }
+    if ($Build -ge 17763) { return 'Windows10' }
+    if ($Build -eq 9600)   { return 'Windows81' }
+    return 'Unsupported'
+}
+
+
 function Get-SystemInfo {
     if ($Global:SystemInfoCache) { return $Global:SystemInfoCache }
     try {
         $osInfo = Get-CimInstance Win32_OperatingSystem
         $computerInfo = Get-CimInstance Win32_ComputerSystem
         $diskInfo = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
-        $versionMap = @{
-            28000 = "26H1"; 26200 = "25H2"; 26100 = "24H2"; 22631 = "23H2"; 22621 = "22H2"; 22000 = "21H2"
-            19045 = "22H2"; 19044 = "21H2"; 19043 = "21H1"; 19042 = "20H2"; 19041 = "2004"; 18363 = "1909"
-            18362 = "1903"; 17763 = "1809"; 17134 = "1803"; 16299 = "1709"; 15063 = "1703"; 14393 = "1607"
-            10586 = "1511"; 10240 = "1507"
-        }
         $build = [int]$osInfo.BuildNumber
-        $ver = "N/A"
-        foreach ($k in ($versionMap.Keys | Sort-Object -Descending)) { if ($build -ge $k) { $ver = $versionMap[$k]; break } }
+        $ver = Get-WindowsDisplayVersion -Build $build
 
         $Global:SystemInfoCache = @{
             ProductName    = $osInfo.Caption -replace 'Microsoft ', ''
             BuildNumber    = $build
             DisplayVersion = $ver
+            Compatibility  = Get-WindowsCompatibility -Build $build
             Architecture   = $osInfo.OSArchitecture
             ComputerName   = $computerInfo.Name
             TotalRAM       = [Math]::Round($computerInfo.TotalPhysicalMemory / 1GB, 2)
