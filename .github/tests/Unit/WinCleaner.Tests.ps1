@@ -58,3 +58,44 @@ Describe 'WinCleaner — VitalExclusions' {
         $source | Should -Match 'LocalAppData.*WinToolkit'
     }
 }
+
+Describe 'WinCleaner — Invoke-CommandAction displayName (regression for empty NameKey)' {
+
+    It 'Resolves DisplayName via Get-SourceTextLoc only when NameKey is present' {
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Match '\$displayName\s*=\s*if\s*\(\s*\$Rule\.NameKey\s*\)\s*\{'
+        $source | Should -Match 'Get-SourceTextLoc\s+\$Rule\.NameKey\s*\}\s*else\s*\{\s*\$Rule\.Name\s*\}'
+    }
+
+    It 'Never calls Get-SourceTextLoc with a bare (unguarded) NameKey' {
+        # Before the fix: "$displayName = Get-SourceTextLoc $Rule.NameKey" → throws
+        # "Cannot bind argument to parameter 'Key' because it is an empty string"
+        # when a Command rule omits NameKey (e.g. the inline cleanmgr rules).
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Not -Match '\$displayName\s*=\s*Get-SourceTextLoc\s+\$Rule\.NameKey\s*$'
+    }
+
+    It 'Inline CleanMgr Command rules still expose a Name for the NameKey fallback' {
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Match "Name\s*=\s*'Running CleanMgr with /sagerun:65'"
+        $source | Should -Match "Name\s*=\s*'Removing Windows\.old \(CleanMgr\)'"
+    }
+}
+
+Describe 'WinCleaner — Get-LocalUserProfiles (regression for undefined function)' {
+
+    It 'Get-LocalUserProfiles is defined by the core and callable at runtime' {
+        # Before the fix the function was undefined, so every per-user rule aborted
+        # WinCleaner with "Il termine 'Get-LocalUserProfiles' non è riconosciuto".
+        # It is provided by the shared core (wintoolkit-modules/40-Module.System.ps1)
+        # and must therefore be available after the template + tool are imported.
+        Get-Command Get-LocalUserProfiles -ErrorAction SilentlyContinue | Should -Not -BeNull
+        { Get-LocalUserProfiles } | Should -Not -Throw
+    }
+
+    It 'WinCleaner references Get-LocalUserProfiles and does not define a local copy' {
+        $source = Get-Content -Path $script:ToolPath -Raw
+        $source | Should -Match 'Get-LocalUserProfiles'
+        $source | Should -Not -Match 'function Get-LocalUserProfiles\s*\{'
+    }
+}
