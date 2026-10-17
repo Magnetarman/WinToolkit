@@ -37,7 +37,7 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.10"
+$ProfileVersion = "2.6.0.8"
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
