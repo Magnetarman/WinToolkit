@@ -37,7 +37,7 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.7"
+$ProfileVersion = "2.6.0.8"
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
@@ -609,9 +609,14 @@ function Get-SpeedtestExecutable {
     if (-not $installed) {
         if (-not (Require-Admin -FeatureName 'Speedtest')) { return $null }
         Write-Host "⬇️ $packageId is not installed. Installing via WinGet..." -ForegroundColor Yellow
-        winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine
-        if ($LASTEXITCODE -ne 0) {
-            Write-Failure "$packageId installation failed (code $LASTEXITCODE)."
+
+        # Invoke-WingetPackageAction echoes the WinGet output via Write-Host and returns a
+        # structured result. A raw 'winget install' would leak its log lines into this
+        # function's return value and turn $speedtestExe into an array on the first run.
+        $installArgs = @('install', '--id', $packageId, '-e', '--source', 'winget', '--silent', '--scope', 'machine', '--accept-package-agreements', '--accept-source-agreements')
+        $result = Invoke-WingetPackageAction -Arguments $installArgs
+        if ($result.ExitCode -ne 0) {
+            Write-Failure "$packageId installation failed (code $($result.ExitCode))."
             return $null
         }
         # Refresh PATH so the freshly installed executable is found in the current session
@@ -667,10 +672,33 @@ function Speedtest {
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
     Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
 
-    # Human-readable raw output on screen + save to file (single run, no extra latency)
-    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
+    # Raw output goes to the file; the console gets a filtered view so the first-run
+    # EULA/GDPR banners and the transient '[error] Cannot open socket' retries stay
+    # out of the result flow (they remain available in the saved log).
+    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Out-File -FilePath $outputPath
 
     $text = Get-Content -Path $outputPath -Raw
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        Write-Warn "Speedtest produced no output. Check the log: $outputPath"
+        return
+    }
+
+    # Show only the results block: the very first run prints license banners before it
+    $displayText = $text
+    $resultsStart = $text.IndexOf('Speedtest by Ookla')
+    if ($resultsStart -gt 0) { $displayText = $text.Substring($resultsStart) }
+
+    # Transient connection errors (server probing retries) stay in the file only
+    $errorMatches = [regex]::Matches($displayText, '(?m)^\[error\].*$')
+    if ($errorMatches.Count -gt 0) {
+        $displayText = [regex]::Replace($displayText, '(?m)^\[error\].*\r?\n?', '')
+    }
+
+    Write-Host ''
+    Write-Host $displayText.TrimEnd()
+    if ($errorMatches.Count -gt 0) {
+        Write-Warn "$($errorMatches.Count) transient connection error(s) were retried automatically. Full log: $outputPath"
+    }
 
     # Helper: extract first capture group or 'n/a' (guarantees a non-empty value)
     function Get-Value([string]$Pattern, [string]$InputStr) {
@@ -930,24 +958,31 @@ function Invoke-WingetPackageAction {
         [string[]]$Arguments
     )
 
+    # WinGet writes UTF-8 while the console may still use an OEM codepage (e.g. CP850):
+    # without this temporary swap, accented output arrives mangled ("non ├¿ responsabile").
+    $previousEncoding = [Console]::OutputEncoding
     try {
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
         $output = @(& winget @Arguments 2>&1)
         $exitCode = $LASTEXITCODE
-
-        foreach ($line in $output) {
-            Write-Host $line
-        }
-
-        return [PSCustomObject]@{
-            ExitCode = $exitCode
-            Output   = ($output -join [Environment]::NewLine)
-        }
     }
     catch {
         return [PSCustomObject]@{
             ExitCode = $null
             Output   = $_.Exception.Message
         }
+    }
+    finally {
+        [Console]::OutputEncoding = $previousEncoding
+    }
+
+    foreach ($line in $output) {
+        Write-Host $line
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = $exitCode
+        Output   = ($output -join [Environment]::NewLine)
     }
 }
 
