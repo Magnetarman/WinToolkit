@@ -37,7 +37,7 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.7"
+$ProfileVersion = "2.6.0.8"
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
@@ -609,7 +609,10 @@ function Get-SpeedtestExecutable {
     if (-not $installed) {
         if (-not (Require-Admin -FeatureName 'Speedtest')) { return $null }
         Write-Host "⬇️ $packageId is not installed. Installing via WinGet..." -ForegroundColor Yellow
-        winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine
+        # Out-Host keeps the WinGet output visible on screen but prevents it from entering the
+        # success output stream: otherwise the function would return an array (WinGet log lines
+        # + path) and '& $speedtestExe' would fail on the first run right after installation.
+        winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine | Out-Host
         if ($LASTEXITCODE -ne 0) {
             Write-Failure "$packageId installation failed (code $LASTEXITCODE)."
             return $null
