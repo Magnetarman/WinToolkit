@@ -126,7 +126,7 @@ function Get-SourceTextLoc {
     }
     if ($null -eq $value) { $value = $Key }
 
-    if ($Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
+    if ($null -ne $Arguments -and $Arguments.Count -gt 0) { return [string]::Format($value, $Arguments) }
     return $value
 }
 
