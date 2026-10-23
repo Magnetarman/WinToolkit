@@ -1,20 +1,21 @@
-function OutlookRepair {
+﻿function OutlookRepair {
     <#
     .SYNOPSIS
-        Ripara i profili di Microsoft Outlook Classic.
+        Repairs Microsoft Outlook Classic profiles.
     .DESCRIPTION
-        Si aggancia al profilo Outlook corrente via COM, distingue gli account cloud
-        (Exchange/IMAP) dagli archivi locali (POP3/PST) e applica una riparazione
-        differenziata: svuota la "Posta Eliminata" per gli account cloud, avvia
-        SCANPST.EXE per gli archivi PST locali.
+        Attaches to the current Outlook profile via COM, distinguishes cloud accounts
+        (Exchange/IMAP) from local archives (POP3/PST) and applies a differentiated
+        repair strategy:
+          * Cloud accounts -> safely empties the "Deleted Items" folder.
+          * Local PST archives -> launches SCANPST.EXE (GUI, requires manual interaction).
     .PARAMETER NoWaitForScanPst
-        Avvia SCANPST senza attendere la chiusura della GUI.
+        Launches SCANPST without waiting for the GUI to close.
     .PARAMETER SuppressIndividualReboot
-        Sopprime il reboot individuale (usato in esecuzione multi-script).
+        Suppresses the individual reboot (used in multi-script execution).
     .PARAMETER CountdownSeconds
-        Secondi del countdown prima del riavvio.
+        Seconds in the countdown before restarting.
     .NOTES
-        Richiede PowerShell 7 e Microsoft Outlook Classic installato.
+        Requires PowerShell 7 and Microsoft Outlook Classic installed.
     #>
     [CmdletBinding()]
     param(
@@ -23,21 +24,24 @@ function OutlookRepair {
         [int]$CountdownSeconds = 30
     )
 
+    # Standard tool session initialization (log file, header, window title).
     Start-ToolkitSession -ToolName "OutlookRepair" -SubTitle (Get-SourceTextLoc 'script.OutlookRepair')
 
-    # Costanti del modello oggetto Outlook
-    $olFolderDeletedItems = 3
-    $olStoreExchange = 1
-    $olStoreImap = 2
-    $olStoreExchangeOther = 3
+    # Outlook Object Model constants.
+    $olFolderDeletedItems = 3   # Deleted Items folder
+    $olStoreExchange = 1        # Exchange store
+    $olStoreImap = 2           # IMAP store
+    $olStoreExchangeOther = 3   # Exchange store (variant)
 
-    # Percorsi standard di SCANPST.EXE (Office Click-to-Run, 64-bit e 32-bit)
+    # Standard SCANPST.EXE locations (Office Click-to-Run, 64-bit and 32-bit).
     $scanPstCandidatePaths = @(
         "${env:ProgramFiles}\Microsoft Office\root\Office16\SCANPST.EXE",
         "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\SCANPST.EXE"
     )
 
-    # Helper locale: rilascio oggetti COM per evitare processi zombie
+    # ==========================================================================
+    # HELPER: release a COM object cleanly to avoid zombie processes.
+    # ==========================================================================
     function Release-ComObject {
         param([object]$ComObject)
         if ($null -eq $ComObject) { return }
@@ -50,7 +54,10 @@ function OutlookRepair {
         [System.GC]::WaitForPendingFinalizers()
     }
 
-    # Helper locale: ricerca di SCANPST.EXE nei percorsi standard
+    # ==========================================================================
+    # HELPER: locate SCANPST.EXE in the standard Office paths.
+    # Returns the full path when found, otherwise $null.
+    # ==========================================================================
     function Get-ScanPstPath {
         foreach ($candidatePath in $scanPstCandidatePaths) {
             try {
@@ -63,7 +70,10 @@ function OutlookRepair {
         return $null
     }
 
-    # Helper locale: connessione COM a Outlook (istanza attiva o nuova)
+    # ==========================================================================
+    # HELPER: connect to Outlook via COM (attach to running instance or create new).
+    # Returns the Outlook.Application COM object, or $null on failure.
+    # ==========================================================================
     function Connect-Outlook {
         try {
             $outlook = [Runtime.Interopservices.Marshal]::GetActiveObject('Outlook.Application')
@@ -85,13 +95,15 @@ function OutlookRepair {
         }
     }
 
-    # Helper locale: pulizia "Posta Eliminata" per account cloud (Exchange/IMAP)
+    # ==========================================================================
+    # HELPER: clean the "Deleted Items" folder for cloud accounts (Exchange/IMAP).
+    # ==========================================================================
     function Repair-CloudAccount {
         param(
             [Parameter(Mandatory = $true)][object]$Store,
             [Parameter(Mandatory = $true)][object]$Namespace
         )
-        $storeName = 'Sconosciuto'
+        $storeName = 'Unknown'
         try { $storeName = $Store.DisplayName } catch { }
         try {
             Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cloudAccountCleaningDeletedItems')"
@@ -121,7 +133,7 @@ function OutlookRepair {
                 return
             }
             Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.found0ItemsToRemove' -Args @($itemCount))"
-            # Ciclo inverso per preservare la validità degli indici durante la rimozione
+            # Iterate backwards so item indices stay valid while deleting.
             for ($i = $itemCount; $i -ge 1; $i--) {
                 $item = $null
                 try {
@@ -146,13 +158,15 @@ function OutlookRepair {
         }
     }
 
-    # Helper locale: riparazione conservativa per archivi locali (POP3/PST)
+    # ==========================================================================
+    # HELPER: conservative repair for local archives (POP3/PST) via SCANPST.EXE.
+    # ==========================================================================
     function Repair-Pop3PstAccount {
         param(
             [Parameter(Mandatory = $true)][object]$Store,
             [string]$ScanPstPath
         )
-        $storeName = 'Sconosciuto'
+        $storeName = 'Unknown'
         try { $storeName = $Store.DisplayName } catch { }
         try {
             Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.localArchiveConservativeApproach')"
@@ -176,6 +190,7 @@ function OutlookRepair {
             }
             Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.pstFileFound0' -Args @($pstPath))"
             if (-not $ScanPstPath) {
+                # SCANPST.EXE not found: Outlook Classic may not be installed.
                 Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.scanpstNotFoundOutlookClassicMaybeNotInstalled')
                 return
             }
@@ -198,10 +213,13 @@ function OutlookRepair {
         }
     }
 
-    # Flusso principale
+    # ==========================================================================
+    # MAIN FLOW
+    # ==========================================================================
     $needsReboot = $false
     try {
         Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.startingOutlookRepair'))
+        # Close Outlook before touching its data files.
         Stop-ToolkitProcesses -ProcessNames @('outlook')
 
         Write-StyledMessage -Type 'Info' -Text ("🧹 " + (Get-SourceTextLoc 'toolText.outlookCacheCleanup'))
@@ -212,9 +230,9 @@ function OutlookRepair {
         )) {
             if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
         }
-        if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0CachesDeleted' -Args @($cleanedCount)) }
+        if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0DeletedCaches' -Args @($cleanedCount)) }
 
-        # 1. Ricerca di SCANPST.EXE
+        # 1. Locate SCANPST.EXE. If not found, Outlook Classic may not be installed.
         Write-StyledMessage -Type 'Info' -Text ("[1/5] " + (Get-SourceTextLoc 'toolText.searchingScanpst'))
         $scanPstPath = Get-ScanPstPath
         if ($null -eq $scanPstPath) {
@@ -224,7 +242,7 @@ function OutlookRepair {
             Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.scanpstFound0' -Args @($scanPstPath))
         }
 
-        # 2. Connessione COM a Outlook
+        # 2. Connect to Outlook via COM.
         Write-StyledMessage -Type 'Info' -Text ("[2/5] " + (Get-SourceTextLoc 'toolText.connectingToOutlookCom'))
         $outlook = Connect-Outlook
         if ($null -eq $outlook) {
@@ -232,7 +250,7 @@ function OutlookRepair {
             return
         }
 
-        # 3. Namespace MAPI
+        # 3. Retrieve the MAPI namespace.
         Write-StyledMessage -Type 'Info' -Text ("[3/5] " + (Get-SourceTextLoc 'toolText.retrievingMapiNamespace'))
         $namespace = $null
         try {
@@ -245,7 +263,7 @@ function OutlookRepair {
             return
         }
 
-        # 4-5. Scansione Store e ramo di riparazione differenziato
+        # 4-5. Iterate configured stores and apply the differentiated repair.
         Write-StyledMessage -Type 'Info' -Text ("[4-5/5] " + (Get-SourceTextLoc 'toolText.scanningConfiguredStores'))
         $stores = $null
         try { $stores = $namespace.Stores }
@@ -279,7 +297,7 @@ function OutlookRepair {
             Release-ComObject -ComObject $store
         }
 
-        # Chiusura pulita
+        # Release COM objects and finalize.
         Write-StyledMessage -Type 'Info' -Text ("[5/5] " + (Get-SourceTextLoc 'toolText.releasingComObjects'))
         Release-ComObject -ComObject $namespace
         Release-ComObject -ComObject $outlook
