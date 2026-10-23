@@ -18,6 +18,7 @@ function WinDeleteUserProfiles {}
 # Office
 function Install-Office {}
 function Repair-Office {}
+function OutlookRepair {}
 function Uninstall-Office {}
 
 # Driver & Gaming
