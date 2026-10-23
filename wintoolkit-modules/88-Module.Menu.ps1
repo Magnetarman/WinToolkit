@@ -17,6 +17,7 @@ $menuStructure = @(
     @{ 'Name' = 'Office'; 'CategoryKey' = 'category.office'; 'Icon' = '🏢'; 'Scripts' = @(
             [pscustomobject]@{Name = 'Install-Office'; Description = 'Install Office Basic'; DescriptionKey = 'script.Install-Office'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'Repair-Office'; Description = 'Repair Office'; DescriptionKey = 'script.Repair-Office'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'OutlookRepair'; Description = 'Repair Outlook Classic'; DescriptionKey = 'script.OutlookRepair'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Remove Office'; DescriptionKey = 'script.Uninstall-Office'; Action = 'RunFunction' }
         )
     },
