@@ -24,10 +24,11 @@ operation each. Every tool lives in a single file under `tools/`, is compiled in
 | 8 | Video Driver Reinstall | `VideoDriverReinstall` | Reinstalls drivers via DDU in Safe Mode |
 | 9 | Office Install | `Install-Office` | Installs Office Basic through the ODT |
 | 10 | Office Repair | `Repair-Office` | Click-to-Run quick repair, with online fallback |
-| 11 | Office Uninstall | `Uninstall-Office` | Removes Office via GetHelpCMD, or directly on earlier builds |
-| 12 | Gaming | `GamingToolkit` | Installs runtimes, game clients, and tunes the system |
-| 13 | BitLocker | `DisableBitlocker` | Decrypts the system drive and blocks re-encryption |
-| 14 | Diagnostic Logs | `WinExportLog` | Bundles session logs into a ZIP on the Desktop |
+| 11 | Outlook Repair | `OutlookRepair` | Repairs Outlook Classic profiles (cloud accounts: empties "Deleted Items"; local PST archives: runs SCANPST); limits IMAP cached mail to the last 6 months |
+| 12 | Office Uninstall | `Uninstall-Office` | Removes Office via GetHelpCMD, or directly on earlier builds |
+| 13 | Gaming | `GamingToolkit` | Installs runtimes, game clients, and tunes the system |
+| 14 | BitLocker | `DisableBitlocker` | Decrypts the system drive and blocks re-encryption |
+| 15 | Diagnostic Logs | `WinExportLog` | Bundles session logs into a ZIP on the Desktop |
 
 > [!TIP]
 >
@@ -132,6 +133,31 @@ Repairs an existing installation through the **Click-to-Run** stack. The **Quick
 (offline) path is attempted first because it is fast and works without a network; if it does
 not resolve the problem, the tool falls back to **Online Repair**, which re-downloads the
 whole product.
+
+### Outlook Repair
+
+`OutlookRepair` · `tools/OutlookRepair.ps1`
+
+Repairs Microsoft Outlook Classic profiles. It attaches to the current profile through COM,
+distinguishes cloud accounts (Exchange/IMAP) from local archives (POP3/PST) and applies a
+differentiated strategy:
+
+- **Cloud accounts (Exchange/IMAP)**: safely empties the "Deleted Items" folder of each store.
+- **Local PST archives**: locates `SCANPST.EXE` in the standard Office paths and launches it
+  (GUI, requires manual interaction) against each `.pst` file. If `SCANPST.EXE` is not found,
+  an error is reported, since Outlook Classic may not be installed.
+- **IMAP cache optimization**: when an IMAP account is present, the cached-mode sync window
+  is limited to the last 6 months (`SyncWindowSetting = 6`), so older messages are downloaded
+  on demand and the local database does not grow unbounded.
+
+Shared helpers from `wintoolkit-modules/` are used throughout (`Write-StyledMessage`,
+`Start-ToolkitSession`, `Stop-ToolkitProcesses`, `Remove-ItemSafely`, `Invoke-ToolkitReboot`).
+
+<|end|> Parameter | Default | Effect |
+|-----------|---------|--------|
+| `-NoWaitForScanPst` | off | Launches SCANPST without waiting for the GUI to close |
+| `-CountdownSeconds` | `30` | Seconds before the suggested restart |
+| `-SuppressIndividualReboot` | off | Lets the caller own the reboot |
 
 ### Uninstall Office
 
@@ -398,7 +424,7 @@ The tools are compiled together with the framework modules into a single distrib
 
 | Path | Role |
 |------|------|
-| `tools/` | The 14 functional tools documented above, one function per file |
+| `tools/` | The 15 functional tools documented above, one function per file |
 | `start-modules/` | Setup modules for `start.ps1` (bootstrapping, winget, environment, localisation) |
 | `wintoolkit-modules/` | Runtime modules for the toolkit (UI, logging, processes, menu, office, winget) |
 | `start.ps1` | Installer / first-run entry point |
