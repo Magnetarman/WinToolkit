@@ -4514,6 +4514,281 @@ function Repair-Office {
         Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.extra.repairCompleted') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
     }
 }
+function OutlookRepair {
+    [CmdletBinding()]
+    param(
+        [switch]$NoWaitForScanPst,
+        [switch]$SuppressIndividualReboot,
+        [int]$CountdownSeconds = 30
+    )
+    Start-ToolkitSession -ToolName "OutlookRepair" -SubTitle (Get-SourceTextLoc 'script.OutlookRepair')
+    $olFolderDeletedItems = 3
+    $olStoreExchange = 1
+    $olStoreImap = 2
+    $olStoreExchangeOther = 3
+    $scanPstCandidatePaths = @(
+        "${env:ProgramFiles}\Microsoft Office\root\Office16\SCANPST.EXE",
+        "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\SCANPST.EXE"
+    )
+    function Release-ComObject {
+        param([object]$ComObject)
+        if ($null -eq $ComObject) { return }
+        try {
+            while ([System.Runtime.Interopservices.Marshal]::ReleaseComObject($ComObject) -gt 0) { }
+        }
+        catch { }
+        [System.Runtime.Interopservices.Marshal]::FinalReleaseComObject($ComObject) 2>$null
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+    }
+    function Get-ScanPstPath {
+        foreach ($candidatePath in $scanPstCandidatePaths) {
+            try {
+                if (Test-Path -LiteralPath $candidatePath -PathType Leaf -ErrorAction Stop) {
+                    return $candidatePath
+                }
+            }
+            catch { }
+        }
+        return $null
+    }
+    function Connect-Outlook {
+        try {
+            $outlook = [Runtime.Interopservices.Marshal]::GetActiveObject('Outlook.Application')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.outlookAlreadyRunningAttached')
+            return $outlook
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.outlookNotRunningStartingCom')
+        }
+        try {
+            $outlook = New-Object -ComObject Outlook.Application
+            $null = $outlook.GetNamespace('MAPI')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.outlookComInstanceCreated')
+            return $outlook
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.cannotCreateOutlookCom0' -Args @($($_.Exception.Message)))
+            return $null
+        }
+    }
+    function Repair-CloudAccount {
+        param(
+            [Parameter(Mandatory = $true)][object]$Store,
+            [Parameter(Mandatory = $true)][object]$Namespace
+        )
+        $storeName = 'Unknown'
+        try { $storeName = $Store.DisplayName } catch { }
+        try {
+            Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cloudAccountCleaningDeletedItems')"
+            $deletedFolder = $null
+            try { $deletedFolder = $Namespace.GetDefaultFolder($olFolderDeletedItems) }
+            catch {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cannotAccessDeletedItems0' -Args @($($_.Exception.Message)))"
+                return
+            }
+            if ($null -eq $deletedFolder) {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.deletedItemsFolderUnavailable')"
+                return
+            }
+            $items = $null
+            try { $items = $deletedFolder.Items }
+            catch {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cannotEnumerateDeletedItems0' -Args @($($_.Exception.Message)))"
+                Release-ComObject -ComObject $deletedFolder
+                return
+            }
+            $itemCount = 0
+            try { $itemCount = $items.Count } catch { $itemCount = 0 }
+            if ($itemCount -eq 0) {
+                Write-StyledMessage -Type 'Success' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.deletedItemsAlreadyEmpty')"
+                Release-ComObject -ComObject $items
+                Release-ComObject -ComObject $deletedFolder
+                return
+            }
+            Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.found0ItemsToRemove' -Args @($itemCount))"
+            for ($i = $itemCount; $i -ge 1; $i--) {
+                $item = $null
+                try {
+                    $item = $items.Item($i)
+                    $item.Delete()
+                }
+                catch {
+                    Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cannotDeleteItem01' -Args @($i, $($_.Exception.Message)))"
+                }
+                finally {
+                    if ($null -ne $item) { Release-ComObject -ComObject $item }
+                }
+            }
+            Write-StyledMessage -Type 'Success' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.deletedItemsCleanupComplete')"
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.criticalErrorCloudCleanup0' -Args @($($_.Exception.Message)))"
+        }
+        finally {
+            if ($null -ne $items) { Release-ComObject -ComObject $items }
+            if ($null -ne $deletedFolder) { Release-ComObject -ComObject $deletedFolder }
+        }
+    }
+    function Repair-Pop3PstAccount {
+        param(
+            [Parameter(Mandatory = $true)][object]$Store,
+            [string]$ScanPstPath
+        )
+        $storeName = 'Unknown'
+        try { $storeName = $Store.DisplayName } catch { }
+        try {
+            Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.localArchiveConservativeApproach')"
+            $pstPath = $null
+            try { $pstPath = $Store.FilePath }
+            catch {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cannotGetPstPath')"
+                return
+            }
+            if ([string]::IsNullOrWhiteSpace($pstPath)) {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.emptyPstPathSkipping')"
+                return
+            }
+            if (-not (Test-Path -LiteralPath $pstPath -PathType Leaf -ErrorAction SilentlyContinue)) {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.pstFileNotFound0' -Args @($pstPath))"
+                return
+            }
+            if (-not $pstPath.EndsWith('.pst', [System.StringComparison]::OrdinalIgnoreCase)) {
+                Write-StyledMessage -Type 'Warning' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.nonPstExtensionSkipping0' -Args @($pstPath))"
+                return
+            }
+            Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.pstFileFound0' -Args @($pstPath))"
+            if (-not $ScanPstPath) {
+                Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.scanpstNotFoundOutlookClassicMaybeNotInstalled')
+                return
+            }
+            Write-StyledMessage -Type 'Info' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.startingScanpstFor0' -Args @($pstPath))"
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.scanpstGuiManualStartRequired')
+            $arguments = "-file `"$pstPath`""
+            try {
+                $process = Start-Process -FilePath $ScanPstPath -ArgumentList $arguments -PassThru -ErrorAction Stop
+                Write-StyledMessage -Type 'Success' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.scanpstStarted0' -Args @($process.Id))"
+                if (-not $NoWaitForScanPst) {
+                    Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.waitForRepairToFinish')
+                }
+            }
+            catch {
+                Write-StyledMessage -Type 'Error' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.cannotStartScanpst0' -Args @($($_.Exception.Message)))"
+            }
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text "[$storeName] $(Get-SourceTextLoc 'toolText.errorManagingPst0' -Args @($($_.Exception.Message)))"
+        }
+    }
+    function Set-ImapCachedModeWindow {
+        $paths = @(
+            "HKCU:\Software\Microsoft\Office\16.0\Outlook\Cached Mode",
+            "HKCU:\Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode"
+        )
+        try {
+            foreach ($path in $paths) {
+                if (-not (Test-Path $path)) { $null = New-Item -Path $path -Force }
+                Set-ItemProperty -Path $path -Name "SyncWindowSetting" -Value 6 -Type DWord -Force
+                Set-ItemProperty -Path $path -Name "SyncWindowSettingDays" -Value 0 -Type DWord -Force
+            }
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.imapCacheSetTo6Months')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.imapCacheRestartOutlook')
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.imapCacheRegistryFailed0' -Args @($($_.Exception.Message)))
+        }
+    }
+    $needsReboot = $false
+    try {
+        Write-StyledMessage -Type 'Info' -Text ("🔧 " + (Get-SourceTextLoc 'toolText.startingOutlookRepair'))
+        Stop-ToolkitProcesses -ProcessNames @('outlook')
+        Write-StyledMessage -Type 'Info' -Text ("🧹 " + (Get-SourceTextLoc 'toolText.outlookCacheCleanup'))
+        $cleanedCount = 0
+        foreach ($cache in @(
+            "$env:LOCALAPPDATA\Microsoft\Outlook",
+            "$env:LOCALAPPDATA\Microsoft\Office\16.0\Lync\Lync.cache"
+        )) {
+            if (Remove-ItemSafely -Path $cache -Recurse) { $cleanedCount++ }
+        }
+        if ($cleanedCount -gt 0) { Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.0DeletedCaches' -Args @($cleanedCount)) }
+        Write-StyledMessage -Type 'Info' -Text ("[1/5] " + (Get-SourceTextLoc 'toolText.searchingScanpst'))
+        $scanPstPath = Get-ScanPstPath
+        if ($null -eq $scanPstPath) {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.scanpstNotFoundOutlookClassicMaybeNotInstalled')
+        }
+        else {
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.scanpstFound0' -Args @($scanPstPath))
+        }
+        Write-StyledMessage -Type 'Info' -Text ("[2/5] " + (Get-SourceTextLoc 'toolText.connectingToOutlookCom'))
+        $outlook = Connect-Outlook
+        if ($null -eq $outlook) {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.cannotProceedWithoutOutlookCom')
+            return
+        }
+        Write-StyledMessage -Type 'Info' -Text ("[3/5] " + (Get-SourceTextLoc 'toolText.retrievingMapiNamespace'))
+        $namespace = $null
+        try {
+            $namespace = $outlook.GetNamespace('MAPI')
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.mapiNamespaceRetrieved')
+        }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.cannotRetrieveMapiNamespace0' -Args @($($_.Exception.Message)))
+            Release-ComObject -ComObject $outlook
+            return
+        }
+        Write-StyledMessage -Type 'Info' -Text ("[4-5/5] " + (Get-SourceTextLoc 'toolText.scanningConfiguredStores'))
+        $stores = $null
+        try { $stores = $namespace.Stores }
+        catch {
+            Write-StyledMessage -Type 'Error' -Text (Get-SourceTextLoc 'toolText.cannotAccessStoresCollection0' -Args @($($_.Exception.Message)))
+            Release-ComObject -ComObject $namespace
+            Release-ComObject -ComObject $outlook
+            return
+        }
+        $storeCount = 0
+        try { $storeCount = $stores.Count } catch { $storeCount = 0 }
+        Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.configuredStoresInProfile0' -Args @($storeCount))
+        $hasImap = $false
+        for ($i = 1; $i -le $storeCount; $i++) {
+            $store = $null
+            try { $store = $stores.Item($i) }
+            catch {
+                Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.cannotAccessStore0Skipping' -Args @($i))
+                continue
+            }
+            $storeType = -1
+            try { $storeType = $store.ExchangeStoreType } catch { }
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.store01ExchangeStoreType2' -Args @($i, $store.DisplayName, $storeType))
+            if ($storeType -eq $olStoreImap) { $hasImap = $true }
+            if ($storeType -in @($olStoreExchange, $olStoreImap, $olStoreExchangeOther)) {
+                Repair-CloudAccount -Store $store -Namespace $namespace
+            }
+            else {
+                Repair-Pop3PstAccount -Store $store -ScanPstPath $scanPstPath
+            }
+            Release-ComObject -ComObject $store
+        }
+        if ($hasImap) {
+            Write-StyledMessage -Type 'Info' -Text ("📦 " + (Get-SourceTextLoc 'toolText.imapCacheOptimization'))
+            Set-ImapCachedModeWindow
+        }
+        Write-StyledMessage -Type 'Info' -Text ("[5/5] " + (Get-SourceTextLoc 'toolText.releasingComObjects'))
+        Release-ComObject -ComObject $namespace
+        Release-ComObject -ComObject $outlook
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.outlookRepairCompleted')
+        $needsReboot = $true
+    }
+    catch {
+        Write-ToolkitError -Record $_ -ToolName 'OutlookRepair' -Message (Get-SourceTextLoc 'toolText.criticalErrorRepairingOutlook')
+    }
+    finally {
+        Write-StyledMessage -Type 'Success' -Text ("🎯 " + (Get-SourceTextLoc 'toolText.outlookRepairFinished'))
+        Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.outlookRepairSessionEnded')
+    }
+    if ($needsReboot) {
+        Invoke-ToolkitReboot -Message (Get-SourceTextLoc 'toolText.outlookRepairCompleted') -Seconds $CountdownSeconds -SuppressIndividualReboot:$SuppressIndividualReboot
+    }
+}
 function Uninstall-Office {
     [CmdletBinding()]
     param(
@@ -5434,6 +5709,7 @@ $menuStructure = @(
     @{ 'Name' = 'Office'; 'CategoryKey' = 'category.office'; 'Icon' = '🏢'; 'Scripts' = @(
             [pscustomobject]@{Name = 'Install-Office'; Description = 'Install Office Basic'; DescriptionKey = 'script.Install-Office'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'Repair-Office'; Description = 'Repair Office'; DescriptionKey = 'script.Repair-Office'; Action = 'RunFunction' },
+            [pscustomobject]@{Name = 'OutlookRepair'; Description = 'Repair Outlook Classic'; DescriptionKey = 'script.OutlookRepair'; Action = 'RunFunction' },
             [pscustomobject]@{Name = 'Uninstall-Office'; Description = 'Remove Office'; DescriptionKey = 'script.Uninstall-Office'; Action = 'RunFunction' }
         )
     },
