@@ -4,7 +4,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $script:Branch = 'Dev'
-$ToolkitVersion = "Work In Progress"
+$ToolkitVersion = "2.6.0 (Build 5)"
 $GitHubRepoRawBase = @{
     Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev"
     main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main"
