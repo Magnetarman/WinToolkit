@@ -214,6 +214,31 @@
     }
 
     # ==========================================================================
+    # HELPER: limit IMAP cached mode to the last 6 months (sync slider).
+    # Sets SyncWindowSetting=6 / SyncWindowSettingDays=0 so Outlook keeps only the
+    # last 6 months of mail in the local cache; older messages are downloaded on
+    # demand when opened. Applies to HKCU and the Policies hive (admin override).
+    # ==========================================================================
+    function Set-ImapCachedModeWindow {
+        $paths = @(
+            "HKCU:\Software\Microsoft\Office\16.0\Outlook\Cached Mode",
+            "HKCU:\Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode"
+        )
+        try {
+            foreach ($path in $paths) {
+                if (-not (Test-Path $path)) { $null = New-Item -Path $path -Force }
+                Set-ItemProperty -Path $path -Name "SyncWindowSetting" -Value 6 -Type DWord -Force
+                Set-ItemProperty -Path $path -Name "SyncWindowSettingDays" -Value 0 -Type DWord -Force
+            }
+            Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.imapCacheSetTo6Months')
+            Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.imapCacheRestartOutlook')
+        }
+        catch {
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.imapCacheRegistryFailed0' -Args @($($_.Exception.Message)))
+        }
+    }
+
+    # ==========================================================================
     # MAIN FLOW
     # ==========================================================================
     $needsReboot = $false
@@ -277,6 +302,9 @@
         try { $storeCount = $stores.Count } catch { $storeCount = 0 }
         Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.configuredStoresInProfile0' -Args @($storeCount))
 
+        # Track whether any IMAP account is present, to optimize its cached mode.
+        $hasImap = $false
+
         for ($i = 1; $i -le $storeCount; $i++) {
             $store = $null
             try { $store = $stores.Item($i) }
@@ -288,6 +316,8 @@
             try { $storeType = $store.ExchangeStoreType } catch { }
             Write-StyledMessage -Type 'Info' -Text (Get-SourceTextLoc 'toolText.store01ExchangeStoreType2' -Args @($i, $store.DisplayName, $storeType))
 
+            if ($storeType -eq $olStoreImap) { $hasImap = $true }
+
             if ($storeType -in @($olStoreExchange, $olStoreImap, $olStoreExchangeOther)) {
                 Repair-CloudAccount -Store $store -Namespace $namespace
             }
@@ -295,6 +325,12 @@
                 Repair-Pop3PstAccount -Store $store -ScanPstPath $scanPstPath
             }
             Release-ComObject -ComObject $store
+        }
+
+        # IMAP optimization: keep only the last 6 months in the local cache.
+        if ($hasImap) {
+            Write-StyledMessage -Type 'Info' -Text ("📦 " + (Get-SourceTextLoc 'toolText.imapCacheOptimization'))
+            Set-ImapCachedModeWindow
         }
 
         # Release COM objects and finalize.
