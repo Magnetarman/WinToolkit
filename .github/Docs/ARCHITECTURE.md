@@ -11,7 +11,7 @@ WinToolkit uses a deliberate separation between development and distribution bra
 ```
 Dev (sources)                  main (distribution)
 ├── wintoolkit-modules/        ├── WinToolkit.ps1   ← compiled from Dev
-├── tools/*.ps1  (15 modules)  ├── start.ps1
+├── tools/*.ps1  (16 modules)  ├── start.ps1
 ├── compiler.ps1               ├── assets/
 ├── .github/scripts/           ├── README.md
 ├── .github/workflows/         ├── .github/Docs/CHANGELOG.md
@@ -169,6 +169,7 @@ tools/
 ├── DisableBitlocker.ps1       → function DisableBitlocker { ... }
 ├── GamingToolkit.ps1          → function GamingToolkit { ... }
 ├── Install-Office.ps1         → function Install-Office { ... }
+├── OutlookRepair.ps1          → function OutlookRepair { ... }
 ├── Repair-Office.ps1          → function Repair-Office { ... }
 ├── Uninstall-Office.ps1       → function Uninstall-Office { ... }
 ├── VideoDriverReinstall.ps1   → function VideoDriverReinstall { ... }
