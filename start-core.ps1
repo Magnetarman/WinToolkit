@@ -4,7 +4,7 @@ param(
 )
 Set-StrictMode -Version Latest
 $script:Branch = 'Dev'
-$ToolkitVersion = "2.6.0 (Build 5)"
+$ToolkitVersion = "Work In Progress"
 $GitHubRepoRawBase = @{
     Dev  = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/Dev"
     main = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main"
@@ -1778,6 +1778,10 @@ function Install-PspEnvironment {
                 $result.Changed = $true
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
                 Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
+                $unblocked = Unblock-File -LiteralPath $targetProfile -ErrorAction SilentlyContinue
+                if ($unblocked) {
+                    Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile unblocked (Zone.Identifier removed): $targetProfile"
+                }
             }
             else {
                 $result.Success = $false
