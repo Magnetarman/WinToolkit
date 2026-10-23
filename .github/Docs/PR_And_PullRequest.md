@@ -152,6 +152,7 @@ WinToolkit/
 │   ├── DisableBitlocker.ps1              # BitLocker management
 │   ├── GamingToolkit.ps1                 # Gaming optimizations
 │   ├── Install-Office.ps1                # Microsoft Office installation
+│   ├── OutlookRepair.ps1                 # Microsoft Outlook Classic repair
 │   ├── Repair-Office.ps1                 # Microsoft Office repair
 │   ├── Uninstall-Office.ps1              # Microsoft Office uninstallation
 │   ├── VideoDriverReinstall.ps1          # Video driver reinstallation
@@ -191,6 +192,7 @@ WinToolkit/
 | `DisableBitlocker.ps1`       | BitLocker management and disable             |
 | `GamingToolkit.ps1`          | Gaming-specific optimizations                |
 | `Install-Office.ps1`         | Office installation and configuration        |
+| `OutlookRepair.ps1`          | Outlook Classic profile repair (cloud + PST) |
 | `Repair-Office.ps1`          | Office installation repair                   |
 | `Uninstall-Office.ps1`       | Office uninstallation and removal            |
 | `VideoDriverReinstall.ps1`   | Video driver reinstallation                  |
