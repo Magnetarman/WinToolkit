@@ -16,7 +16,7 @@
 #  01 CONFIGURATION AND PATHS ..... version, remote endpoints, personal folders
 #  02 CORE HELPERS ................ output, paths, privileges, process launcher
 #  03 ENVIRONMENT AND SHELL ....... PSReadLine, command lookup, profile reload
-#  04 FILE AND DIRECTORY ......... zip/search/mkcd, cd history, back, up
+#  04 FILE AND DIRECTORY .......... zip/search/mkcd, cd history, back, up
 #  05 SYSTEM INFORMATION .......... computer, public IP, mainboard, RAM
 #  06 NETWORK UTILITIES ........... DNS, IP/Winsock reset, speedtest
 #  07 SYSTEM COMMANDS ............. reboot and shutdown
@@ -37,7 +37,7 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.8"
+$ProfileVersion = "2.6.0.9"
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
@@ -1876,7 +1876,7 @@ function Show-Help {
     $lines.Add("$($PSStyle.Foreground.Green)Green (Safe):$($PSStyle.Reset) Usage does not pose risks or issues.")
     $lines.Add("$($PSStyle.Foreground.Yellow)Yellow (Warning):$($PSStyle.Reset) Warning! Read the description because these commands can make risky system changes.")
     $lines.Add("$($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions are designed to perform deep and destructive changes. Be careful!")
-    $lines.Add("$($PSStyle.Foreground.Blue)Blue (Personal):$($PSStyle.Reset) External personal helper script loaded from a Private Directory. Not included in the open source version of WinToolkit and will not function in a classic installation.")
+    $lines.Add("$($PSStyle.Foreground.Blue)Blue (Personal):$($PSStyle.Reset) Personal script from a Private Directory (not in the open-source WinToolkit; won't work in a classic install).")
     $lines.Add("$($PSStyle.Foreground.Magenta)Magenta (WinToolkit GUI):$($PSStyle.Reset) WinToolkit GUI launcher.")
     $lines.Add('')
     $lines.Add($divider)
