@@ -1876,6 +1876,8 @@ function Show-Help {
     $lines.Add("$($PSStyle.Foreground.Green)Green (Safe):$($PSStyle.Reset) Usage does not pose risks or issues.")
     $lines.Add("$($PSStyle.Foreground.Yellow)Yellow (Warning):$($PSStyle.Reset) Warning! Read the description because these commands can make risky system changes.")
     $lines.Add("$($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions are designed to perform deep and destructive changes. Be careful!")
+    $lines.Add("$($PSStyle.Foreground.Blue)Blue (Personal):$($PSStyle.Reset) External personal helper script loaded from a Private Directory. Not included in the open source version of WinToolkit and will not function in a classic installation.")
+    $lines.Add("$($PSStyle.Foreground.Magenta)Magenta (WinToolkit GUI):$($PSStyle.Reset) WinToolkit GUI launcher.")
     $lines.Add('')
     $lines.Add($divider)
 
