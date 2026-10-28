@@ -37,7 +37,7 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.9"
+$ProfileVersion = "2.6.0.10"
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
@@ -1008,6 +1008,26 @@ function Test-WingetReinstallRequired {
 }
 
 
+function Test-WingetUnknownVersion {
+    <#
+    .SYNOPSIS
+        Detects a WinGet upgrade failure caused by an undeterminable installed version.
+    .DESCRIPTION
+        WinGet returns APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE (-1978335189) and
+        prints an --include-unknown hint when the installed version cannot be determined
+        (common with third-party packages that report "Unknown"). The hint token is
+        locale-independent, so we key off it instead of translated prose.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Result
+    )
+
+    return ($Result.Output -match '(?i)--include-unknown')
+}
+
+
 function Invoke-WingetReinstall {
     <#
     .SYNOPSIS
@@ -1060,6 +1080,44 @@ function Invoke-WingetReinstall {
     }
 
     Write-Failure "$PackageId reinstall failed (code $($installResult.ExitCode))."
+    return $false
+}
+
+
+function Invoke-WingetUnknownVersionRetry {
+    <#
+    .SYNOPSIS
+        Retries a WinGet upgrade for a package whose installed version could not be determined,
+        using the --include-unknown argument.
+    .DESCRIPTION
+        WinGet refuses to upgrade packages whose installed version is "Unknown" unless
+        --include-unknown is passed. This helper performs that retry and reports the outcome.
+        If the retry surfaces a technology/scope conflict, it delegates to Invoke-WingetReinstall.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageId
+    )
+
+    Write-Host "🔄 Retrying $PackageId with --include-unknown..." -ForegroundColor Cyan
+    $result = Invoke-WingetPackageAction -Arguments @(
+        'upgrade', '--id', $PackageId, '-e', '--silent',
+        '--accept-package-agreements', '--accept-source-agreements',
+        '--include-unknown'
+    )
+
+    if ($result.ExitCode -eq 0) {
+        Write-Success "$PackageId upgraded successfully."
+        return $true
+    }
+
+    if (Test-WingetReinstallRequired -Result $result) {
+        Write-Warn "$PackageId requires an automatic reinstall after the unknown-version retry."
+        return Invoke-WingetReinstall -PackageId $PackageId
+    }
+
+    Write-Failure "$PackageId upgrade failed (code $($result.ExitCode))."
     return $false
 }
 
@@ -1122,10 +1180,12 @@ function PSProfileUpdate {
 function Winget-Update {
     <#
     .SYNOPSIS
-        Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+        Upgrades pasted WinGet package IDs, retries unknown-version packages, and reinstalls incompatible ones.
     .DESCRIPTION
-        Prompts for a list of package IDs (one per line), upgrades each, and automatically
-        uninstalls + reinstalls any that fail due to installation technology incompatibility.
+        Prompts for a list of package IDs (one per line), upgrades each. Packages whose
+        installed version cannot be determined by WinGet are retried with --include-unknown;
+        packages that fail due to installation technology incompatibility are collected
+        and automatically uninstalled + reinstalled.
     #>
     [CmdletBinding()]
     param()
@@ -1166,7 +1226,11 @@ function Winget-Update {
         Write-Host "`n🔄 Upgrading $packageId..." -ForegroundColor Cyan
         $result = Invoke-WingetPackageAction -Arguments @('upgrade', '--id', $packageId, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
 
-        if (Test-WingetReinstallRequired -Result $result) {
+        if (Test-WingetUnknownVersion -Result $result) {
+            Write-Warn "$packageId version is not determinable; retrying with --include-unknown..."
+            $null = Invoke-WingetUnknownVersionRetry -PackageId $packageId
+        }
+        elseif (Test-WingetReinstallRequired -Result $result) {
             $failedPackages.Add($packageId)
             Write-Warn "$packageId requires an automatic reinstall after the remaining upgrades."
         }
@@ -1835,7 +1899,7 @@ function Show-Help {
             Section = '09. PROGRAM UPDATES'
             Items   = @(
                 [pscustomobject]@{ Name = 'Update-Pwsh'; Color = 'Green'; Description = 'Updates PowerShell to the latest version.' },
-                [pscustomobject]@{ Name = 'Winget-Update'; Color = 'Yellow'; Description = 'Upgrades pasted WinGet package IDs and reinstalls incompatible ones.' },
+                [pscustomobject]@{ Name = 'Winget-Update'; Color = 'Yellow'; Description = 'Upgrades pasted WinGet package IDs, retries unknown-version ones, reinstalls incompatible ones.' },
                 [pscustomobject]@{ Name = 'Pip-Update'; Color = 'Yellow'; Description = 'Upgrades all outdated pip packages (excludes python/pip).' },
                 [pscustomobject]@{ Name = 'PSProfileUpdate'; Color = 'Green'; Description = 'Updates the PowerShell profile to the latest version.' }
             )
