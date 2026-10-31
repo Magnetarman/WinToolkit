@@ -110,7 +110,7 @@ jobs:
       - name: Commit pipeline version alignment
         # No continue-on-error: it used to hide a broken commit step behind a green job.
         if: steps.align.outputs.changed == 'true'
-        uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7
+        uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7
         # Never `with: |`: GitHub collapses the block into one string and rejects it.
         with:
           commit_message: ${{ inputs.skip-ci && format('{0} [skip ci]', inputs.commit-message) || inputs.commit-message }}
