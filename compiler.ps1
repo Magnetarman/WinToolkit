@@ -243,39 +243,28 @@ foreach ($file in $toolFiles) {
             
             if ($fileLines.Count -gt 0) {
                 # Trova il primo indice con contenuto significativo
-                $firstNonEmpty = -1
-                for ($i = 0; $i -lt $fileLines.Count; $i++) {
-                    if (-not [string]::IsNullOrWhiteSpace($fileLines[$i])) { $firstNonEmpty = $i; break }
+                # The AST ignores leading comments and identifies the actual function body.
+                $sourceText = $fileLines -join "`n"
+                $parseErrors = $null
+                $sourceAst = [System.Management.Automation.Language.Parser]::ParseInput($sourceText, [ref]$null, [ref]$parseErrors)
+                if ($parseErrors.Count -gt 0) {
+                    throw "Invalid PowerShell syntax in '$($file.Name)': $($parseErrors[0].Message)"
                 }
+                $entryFunction = $sourceAst.EndBlock.Statements | Select-Object -First 1
 
-                if ($firstNonEmpty -ge 0) {
-                    $firstLine = $fileLines[$firstNonEmpty].Trim()
-                    # Case-Insensitive detection of the correct function
-                    if ($firstLine -match ("(?i)^function\s+" + [regex]::Escape($functionName) + "\s*\{")) {
-                        Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.detectedInternalFunctionIn') + " '$functionName'. " + (Get-SourceTextLoc 'sourceText.applyingUnwrapping'))
-                        
-                        # We remove the declaration line
-                        if ($firstNonEmpty -eq 0) {
-                            if ($fileLines.Count -gt 1) { $processedFileLines = $fileLines[1..($fileLines.Count - 1)] } else { $processedFileLines = @() }
-                        }
-                        else {
-                            $processedFileLines = $fileLines[0..($firstNonEmpty - 1)] + $fileLines[($firstNonEmpty + 1)..($fileLines.Count - 1)]
-                        }
-                        
-                        # We remove any final closing brace '}' (last non-empty line)
-                        $lastNonEmpty = -1
-                        for ($j = $processedFileLines.Count - 1; $j -ge 0; $j--) {
-                            if (-not [string]::IsNullOrWhiteSpace($processedFileLines[$j])) { $lastNonEmpty = $j; break }
-                        }
-                        if ($lastNonEmpty -ge 0 -and $processedFileLines[$lastNonEmpty].Trim() -eq "}") {
-                            if ($lastNonEmpty -eq ($processedFileLines.Count - 1)) {
-                                if ($processedFileLines.Count -gt 1) { $processedFileLines = $processedFileLines[0..($processedFileLines.Count - 2)] } else { $processedFileLines = @() }
-                            }
-                            else {
-                                $processedFileLines = $processedFileLines[0..($lastNonEmpty - 1)] + $processedFileLines[($lastNonEmpty + 1)..($processedFileLines.Count - 1)]
-                            }
-                        }
-                    }
+                # Case-Insensitive detection of the correct function
+                if ($entryFunction -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $entryFunction.Name -eq $functionName) {
+                    Write-StyledMessage 'Info' ((Get-SourceTextLoc 'sourceText.detectedInternalFunctionIn') + " '$functionName'. " + (Get-SourceTextLoc 'sourceText.applyingUnwrapping'))
+
+                    # We remove the declaration line, including declarations that span multiple lines.
+                    $bodyStart = $entryFunction.Body.Extent.StartOffset + 1
+                    $bodyLength = $entryFunction.Body.Extent.EndOffset - $bodyStart - 1
+                    $prefix = $sourceText.Substring(0, $entryFunction.Extent.StartOffset)
+                    $body = $sourceText.Substring($bodyStart, $bodyLength)
+
+                    # We remove any final closing brace '}' (last non-empty line), preserving trailing comments with AST offsets.
+                    $suffix = $sourceText.Substring($entryFunction.Extent.EndOffset)
+                    $processedFileLines = ($prefix + $body + $suffix) -split "`r?`n"
                 }
             }
             
