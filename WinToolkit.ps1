@@ -4011,12 +4011,10 @@ function WinDeleteUserProfiles {
     function Get-RemovableUserProfiles {
         $excluded = New-ProtectedNameSet
         Write-StyledMessage -Type 'Info' -Text ("🔍 " + (Get-SourceTextLoc 'toolText.scanningRegisteredLocalProfiles'))
-        Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.scanningRegisteredLocalProfiles')
         try {
             $profiles = Get-CimInstance -ClassName Win32_UserProfile -ErrorAction Stop
         }
         catch {
-            Write-ToolkitLog -Level 'WARNING' -Message (Get-SourceTextLoc 'toolText.cimProfileDetectionFailed0' -Args @($($_.Exception.Message)))
             Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.cimProfileDetectionFailed0' -Args @($($_.Exception.Message))))
             return
         }
@@ -4156,7 +4154,6 @@ function WinDeleteUserProfiles {
         $excluded = New-ProtectedNameSet
         $registeredProfilePaths = Get-RegisteredProfilePathSet
         Write-StyledMessage -Type 'Info' -Text ("🔎 " + (Get-SourceTextLoc 'toolText.checkResidualFoldersInTheUsersDirectory'))
-        Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.checkResidualFoldersInTheUsersDirectory')
         $folders = Get-ChildItem -Path $usersRoot -Directory -Force |
         Where-Object {
             -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)
@@ -4327,7 +4324,6 @@ function WinDeleteUserProfiles {
     }
     finally {
         Write-StyledMessage -Type 'Info' -Text ("♻️ " + (Get-SourceTextLoc 'toolText.winDeleteUserProfilesSessionEnded'))
-        Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.winDeleteUserProfilesSessionEnded')
     }
 }
 function Install-Office {
