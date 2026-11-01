@@ -160,13 +160,11 @@ function WinDeleteUserProfiles {
         $excluded = New-ProtectedNameSet
 
         Write-StyledMessage -Type 'Info' -Text ("🔍 " + (Get-SourceTextLoc 'toolText.scanningRegisteredLocalProfiles'))
-        Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.scanningRegisteredLocalProfiles')
 
         try {
             $profiles = Get-CimInstance -ClassName Win32_UserProfile -ErrorAction Stop
         }
         catch {
-            Write-ToolkitLog -Level 'WARNING' -Message (Get-SourceTextLoc 'toolText.cimProfileDetectionFailed0' -Args @($($_.Exception.Message)))
             Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.cimProfileDetectionFailed0' -Args @($($_.Exception.Message))))
             return
         }
@@ -349,7 +347,6 @@ function WinDeleteUserProfiles {
         $registeredProfilePaths = Get-RegisteredProfilePathSet
 
         Write-StyledMessage -Type 'Info' -Text ("🔎 " + (Get-SourceTextLoc 'toolText.checkResidualFoldersInTheUsersDirectory'))
-        Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.checkResidualFoldersInTheUsersDirectory')
 
         # Exclude reparse points so residual cleanup does not select links into other locations.
         $folders = Get-ChildItem -Path $usersRoot -Directory -Force |
@@ -578,6 +575,5 @@ function WinDeleteUserProfiles {
     finally {
         # Report that the session ended even when a cleanup phase throws.
         Write-StyledMessage -Type 'Info' -Text ("♻️ " + (Get-SourceTextLoc 'toolText.winDeleteUserProfilesSessionEnded'))
-        Write-ToolkitLog -Level INFO -Message (Get-SourceTextLoc 'toolText.winDeleteUserProfilesSessionEnded')
     }
 }

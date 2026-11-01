@@ -46,6 +46,17 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             . ([scriptblock]::Create($function.Extent.Text))
         }
 
+        $script:StyledMessageImplementation = ${function:Write-StyledMessage}
+        $entryPath = if ($CompiledScriptPath) { $CompiledScriptPath } else { $toolPath }
+        $entryAst = [System.Management.Automation.Language.Parser]::ParseFile($entryPath, [ref]$null, [ref]$null)
+        $entry = $entryAst.Find({
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'WinDeleteUserProfiles'
+        }, $true)
+        $sessionTry = $entry.Body.EndBlock.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] }
+        $finallyText = $sessionTry.Finally.Extent.Text
+        $script:SessionFinallyImplementation = [scriptblock]::Create($finallyText.Substring(1, $finallyText.Length - 2))
+
         # Accept synthetic profiles without binding them to the real CIM provider.
         function Remove-CimInstance {
             [CmdletBinding(SupportsShouldProcess = $true)]
@@ -60,7 +71,7 @@ Describe 'WinDeleteUserProfiles safe regressions' {
         $script:SavedGlobals = @{}
         foreach ($name in @(
             'SourceTextLanguageData', 'SourceTextDefaultLanguageData', 'SourceTextKeyAliases',
-            'CurrentLogFile', 'CurrentToolName', 'Spinners', 'GuiSessionActive'
+            'CurrentLogFile', 'CurrentToolName', 'Spinners', 'GuiSessionActive', 'MsgStyles'
         )) {
             $variable = Get-Variable -Name $name -Scope Global -ErrorAction SilentlyContinue
             $script:SavedGlobals[$name] = @{ Exists = $null -ne $variable; Value = if ($variable) { $variable.Value } else { $null } }
@@ -93,6 +104,81 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             else {
                 Remove-Variable -Name $name -Scope Global -ErrorAction SilentlyContinue
             }
+        }
+    }
+
+    Context 'Styled messages written once to the tool log' {
+        BeforeEach {
+            $usersRoot = [System.IO.Path]::GetFullPath((Join-Path $TestDrive 'Users') + '\')
+            $protectedProfileNames = @('Public', 'Default')
+            $Global:MsgStyles = @{
+                Info = @{ Icon = '[INFO]'; Color = 'Cyan' }
+                Warning = @{ Icon = '[WARNING]'; Color = 'Yellow' }
+            }
+            Mock Write-Host {}
+            Mock Write-StyledMessage { & $script:StyledMessageImplementation -Type $Type -Text $Text }
+            Mock Get-CimInstance {}
+            Mock Get-ChildItem {} -ParameterFilter { $Path -eq $usersRoot -or $Path -like 'HKLM:*' }
+        }
+
+        It 'logs the registered-profile scan once per invocation' {
+            $message = Get-SourceTextLoc 'toolText.scanningRegisteredLocalProfiles'
+            $pattern = '\[INFO\].*' + [regex]::Escape($message) + '$'
+
+            Get-RemovableUserProfiles
+
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 1
+
+            Get-RemovableUserProfiles
+
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 2
+        }
+
+        It 'logs a CIM detection failure once with its warning level and error text' {
+            Mock Get-CimInstance { throw 'Synthetic CIM detection failure' }
+            $message = Get-SourceTextLoc 'toolText.cimProfileDetectionFailed0' -Args @('Synthetic CIM detection failure')
+            $pattern = '\[WARNING\]\s+' + [regex]::Escape($message) + '$'
+
+            $profiles = @(Get-RemovableUserProfiles)
+
+            $profiles.Count | Should -Be 0
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 1
+            Should -Invoke Write-Host -Times 1 -Exactly -ParameterFilter { $Object -like '*Synthetic CIM detection failure*' }
+        }
+
+        It 'logs the residual-folder scan once' {
+            $message = Get-SourceTextLoc 'toolText.checkResidualFoldersInTheUsersDirectory'
+            $pattern = '\[INFO\].*' + [regex]::Escape($message) + '$'
+
+            $folders = @(Get-ResidualUserFolders)
+
+            $folders.Count | Should -Be 0
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 1
+        }
+
+        It 'logs session completion once after a <Name> exit' -ForEach @(
+            @{ Name = 'normal'; Fail = $false },
+            @{ Name = 'failed'; Fail = $true }
+        ) {
+            $message = Get-SourceTextLoc 'toolText.winDeleteUserProfilesSessionEnded'
+            $pattern = '\[INFO\].*' + [regex]::Escape($message) + '$'
+            $failure = $null
+
+            try {
+                try {
+                    if ($Fail) { throw 'Synthetic session failure' }
+                }
+                finally {
+                    & $script:SessionFinallyImplementation
+                }
+            }
+            catch {
+                $failure = $_.Exception.Message
+            }
+
+            if ($Fail) { $failure | Should -Be 'Synthetic session failure' }
+            else { $failure | Should -BeNullOrEmpty }
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 1
         }
     }
 
