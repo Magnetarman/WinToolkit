@@ -3949,7 +3949,9 @@ function WinDeleteUserProfiles {
         'Default User',
         'All Users',
         'defaultuser0',
+        'DefaultAccount',
         'WDAGUtilityAccount',
+        'WSIAccount',
         'Administrator',
         'Guest',
         $currentUser,
@@ -3959,6 +3961,99 @@ function WinDeleteUserProfiles {
         $excluded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $protectedProfileNames | ForEach-Object { [void]$excluded.Add($_) }
         return , $excluded
+    }
+    function Test-ProtectedLocalAccount {
+        param([Parameter(Mandatory = $true)][object]$Account)
+        $sid = [string]$Account.SID
+        if ($sid -eq $currentUserSid -or $sid -notmatch '^S-1-5-21-\d+-\d+-\d+-(\d+)$') {
+            return $true
+        }
+        if ([uint64]$Matches[1] -lt 1000) { return $true }
+        $excluded = New-ProtectedNameSet
+        return $excluded.Contains($Account.Name)
+    }
+    function Get-ProtectedLocalAccountSids {
+        param([Parameter(Mandatory = $true)][AllowEmptyCollection()][array]$Accounts)
+        $protectedSids = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        $activeNames = @(Get-CimInstance -ClassName Win32_LoggedOnUser -ErrorAction Stop |
+            Where-Object { $_.Antecedent.Domain -eq $computerName } | ForEach-Object { $_.Antecedent.Name })
+        $serviceNames = @(Get-CimInstance -ClassName Win32_Service -ErrorAction Stop | ForEach-Object { $_.StartName })
+        foreach ($account in $Accounts) {
+            if ((Test-ProtectedLocalAccount -Account $account) -or $activeNames -contains $account.Name -or
+                $serviceNames -contains $account.Name -or $serviceNames -contains ".\$($account.Name)" -or
+                $serviceNames -contains "$computerName\$($account.Name)" -or $serviceNames -contains "$($account.Name)@$computerName") {
+                [void]$protectedSids.Add([string]$account.SID)
+            }
+        }
+        return , $protectedSids
+    }
+    function Get-RemovableLocalAccounts {
+        param(
+            [Parameter(Mandatory = $true)]
+            [AllowEmptyCollection()]
+            [array]$Accounts,
+            [AllowEmptyCollection()]
+            [array]$ProfileResults = @()
+        )
+        $remainingProfiles = @(Get-CimInstance -ClassName Win32_UserProfile -ErrorAction Stop)
+        $profileListKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList'
+        $registeredSids = @(Get-ChildItem -LiteralPath $profileListKey -ErrorAction Stop |
+            ForEach-Object { $_.PSChildName -replace '\.bak$', '' })
+        $removedProfileSids = @($ProfileResults | Where-Object { $_.Success } | ForEach-Object { $_.Sid })
+        $failedProfileSids = @($ProfileResults | Where-Object { -not $_.Success } | ForEach-Object { $_.Sid })
+        $protectedSids = Get-ProtectedLocalAccountSids -Accounts $Accounts
+        foreach ($account in $Accounts) {
+            $sid = [string]$account.SID
+            if ($protectedSids.Contains($sid)) { continue }
+            if ($failedProfileSids -contains $sid -or $registeredSids -contains $sid -or
+                @($remainingProfiles | Where-Object { $_.SID -eq $sid }).Count -gt 0) { continue }
+            if ($removedProfileSids -notcontains $sid) {
+                if (-not $usersRoot.Equals($profilesDirectory, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+                if ($minimumLastUseDate -and (-not $account.LastLogon -or $account.LastLogon -gt $minimumLastUseDate)) { continue }
+            }
+            $accountPath = [System.IO.Path]::GetFullPath((Join-Path $usersRoot $account.Name))
+            if (-not $accountPath.StartsWith($usersRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+                (Test-Path -LiteralPath $accountPath -ErrorAction Stop)) { continue }
+            $account
+        }
+    }
+    function Remove-LocalUserAccounts {
+        param(
+            [Parameter(Mandatory = $true)]
+            [AllowEmptyCollection()]
+            [array]$Accounts,
+            [AllowEmptyCollection()]
+            [array]$ProfileResults = @()
+        )
+        foreach ($account in $Accounts) {
+            $start = Get-Date
+            $sid = [string]$account.SID
+            $success = $false
+            if (Test-ProtectedLocalAccount -Account $account) { continue }
+            try {
+                $currentAccount = Get-LocalUser -SID $sid -ErrorAction Stop
+                $eligibleAccounts = @(Get-RemovableLocalAccounts -Accounts @($currentAccount) -ProfileResults $ProfileResults)
+                if ($eligibleAccounts.Count -ne 1) {
+                    throw (Get-SourceTextLoc 'toolText.localAccountProtected0' -Args @($account.Name))
+                }
+                Remove-LocalUser -SID $sid -ErrorAction Stop -Confirm:$false
+                if (@(Get-LocalUser -ErrorAction Stop | Where-Object { [string]$_.SID -eq $sid }).Count -gt 0) {
+                    throw (Get-SourceTextLoc 'toolText.localAccountStillExists0' -Args @($sid))
+                }
+                $success = $true
+                Write-ToolkitLog -Level 'SUCCESS' -Message (Get-SourceTextLoc 'toolText.localAccountRemoved01' -Args @($account.Name, $sid))
+            }
+            catch {
+                Write-ToolkitLog -Level 'ERROR' -Message (Get-SourceTextLoc 'toolText.localAccountRemovalFailed01' -Args @($account.Name, $_.Exception.Message))
+            }
+            [PSCustomObject]@{
+                Type     = 'LocalAccount'
+                UserName = $account.Name
+                Sid      = $sid
+                Success  = $success
+                Duration = New-TimeSpan -Start $start -End (Get-Date)
+            }
+        }
     }
     function Remove-ProfileRegistryEntries {
         param(
@@ -4028,6 +4123,10 @@ function WinDeleteUserProfiles {
             $profileName = [System.IO.Path]::GetFileName($profileItem.LocalPath)
             if ($excluded.Contains($profileName)) {
                 Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.excludedProfile01' -Args @($profileName, $($profileItem.LocalPath)))
+                continue
+            }
+            if ($protectedAccountSids -and $protectedAccountSids.Contains($profileItem.SID)) {
+                Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.excludedProfile01' -Args @($profileName, $profileItem.LocalPath))
                 continue
             }
             if ($profileItem.SID -eq $currentUserSid) {
@@ -4248,6 +4347,16 @@ function WinDeleteUserProfiles {
         if (-not (Test-Path -LiteralPath $usersRoot -PathType Container)) {
             throw (Get-SourceTextLoc 'toolText.extra.profilePathDoesNotExist0' -Args @($usersRoot))
         }
+        Get-Command Remove-LocalUser -ErrorAction Stop | Out-Null
+        $localAccounts = @(Get-LocalUser -ErrorAction Stop)
+        $profilesDirectoryValue = Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList' -Name 'ProfilesDirectory' -ErrorAction Stop
+        $profilesDirectory = [System.IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($profilesDirectoryValue).TrimEnd('\') + '\')
+        $protectedAccountSids = Get-ProtectedLocalAccountSids -Accounts $localAccounts
+        foreach ($account in $localAccounts) {
+            if ($protectedAccountSids.Contains([string]$account.SID)) {
+                $protectedProfileNames += $account.Name
+            }
+        }
         $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
         if ($os -and $os.Caption -notmatch 'Windows 11') {
             Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.systemDetected0TheScriptIsDesignedForWindows11' -Args @($($os.Caption))))
@@ -4262,6 +4371,7 @@ function WinDeleteUserProfiles {
         Write-ToolkitLog -Level 'INFO' -Message (Get-SourceTextLoc 'toolText.sessionStartedOn0' -Args @($computerName))
         $profileResults = @()
         $residualResults = @()
+        $accountResults = @()
         $targets = @(Get-RemovableUserProfiles)
         if ($targets -and $targets.Count -gt 0) {
             Write-Host ''
@@ -4300,10 +4410,17 @@ function WinDeleteUserProfiles {
         else {
             Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.residualFolderCleanupSkippedForSkipresidualfoldercleanupParameter')
         }
-        $allResults = @($profileResults) + @($residualResults)
+        $accountTargets = @(Get-RemovableLocalAccounts -Accounts $localAccounts -ProfileResults $profileResults)
+        if ($accountTargets.Count -gt 0) {
+            Write-StyledMessage -Type 'Warning' -Text (Get-SourceTextLoc 'toolText.localAccountsSelectedForAutomaticRemoval0' -Args @($accountTargets.Count))
+            $accountTargets | Select-Object Name, SID | Format-Table -AutoSize
+            $accountResults = @(Remove-LocalUserAccounts -Accounts $accountTargets -ProfileResults $profileResults)
+        }
+        $allResults = @($profileResults) + @($residualResults) + @($accountResults)
         $failedCount = @($allResults | Where-Object { -not $_.Success }).Count
         $profileSuccessCount = @($profileResults | Where-Object { $_.Success }).Count
         $residualSuccessCount = @($residualResults | Where-Object { $_.Success }).Count
+        $accountSuccessCount = @($accountResults | Where-Object { $_.Success }).Count
         if ($failedCount -gt 0) {
             $rebootRecommended = $true
             Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.extra.restartRecommendedAfterProfileCleanup'))
@@ -4311,6 +4428,7 @@ function WinDeleteUserProfiles {
         }
         Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.registeredProfilesRemoved0' -Args @($profileSuccessCount)))
         Write-StyledMessage -Type 'Success' -Text ((Get-SourceTextLoc 'toolText.residualFoldersRemoved0' -Args @($residualSuccessCount)))
+        Write-StyledMessage -Type 'Success' -Text (Get-SourceTextLoc 'toolText.localAccountsRemoved0' -Args @($accountSuccessCount))
         if ($failedCount -gt 0) {
             Write-StyledMessage -Type 'Warning' -Text ((Get-SourceTextLoc 'toolText.itemsNotRemoved0' -Args @($failedCount)))
         }
