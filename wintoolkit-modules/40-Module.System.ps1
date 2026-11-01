@@ -78,7 +78,7 @@ function Get-BitlockerStatus {
 function Get-SourceTextLocalUserProfiles {
     <#
     .SYNOPSIS
-        Restituisce le directory utente reali, escludendo i profili di sistema.
+        Returns actual user directories, excluding system profiles.
     #>
     return Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -notmatch '^(Public|Default|Default User|All Users)$' }

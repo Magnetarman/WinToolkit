@@ -1,8 +1,8 @@
 
 
 # ==============================================================================
-# SEZIONE 6 · AMBIENTE — PERCORSI E INIZIALIZZAZIONE
-# Creazione directory di lavoro e refresh del PATH di processo.
+# SECTION 6 · ENVIRONMENT — PATHS AND INITIALIZATION
+# Working directory creation and process PATH refresh.
 # ==============================================================================
 
 function Initialize-ToolkitPaths {
@@ -26,7 +26,7 @@ function Initialize-ToolkitPaths {
 function Update-EnvironmentPath {
     <#
     .SYNOPSIS
-        Ricarica il PATH dalle variabili di sistema e utente per la sessione corrente.
+        Reloads PATH from the system and user variables for the current session.
     #>
     $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -39,7 +39,7 @@ function Update-EnvironmentPath {
 function Set-RegistryValue {
     <#
     .SYNOPSIS
-        Crea la chiave di registro se mancante e imposta il valore specificato.
+        Creates the registry key if missing and sets the specified value.
     #>
     param([string]$Path, [string]$Name, $Value, [string]$Type = 'DWord')
     if (-not (Test-Path $Path)) { $null = New-Item -Path $Path -Force }

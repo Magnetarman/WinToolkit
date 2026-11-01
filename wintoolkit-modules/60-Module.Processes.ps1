@@ -1,14 +1,14 @@
 
 
 # ==============================================================================
-# SEZIONE 7 · PROCESSI ED ESECUZIONE
-# Chiusura processi, esecuzione comandi esterni con log, spinner, countdown.
+# SECTION 7 · PROCESSES AND EXECUTION
+# Process termination, logged external commands, spinners, and countdowns.
 # ==============================================================================
 
 function Stop-ToolkitProcesses {
     <#
     .SYNOPSIS
-        Chiude in modo forzato e silenzioso i processi specificati.
+        Forcibly and silently terminates the specified processes.
     #>
     param([string[]]$ProcessNames)
     Write-StyledMessage -Type Info -Text (Get-SourceTextLoc 'uiText.closingInterferingProcesses')
@@ -27,9 +27,9 @@ function Invoke-ExternalCommandWithLog {
         Executes an external command with structured logging and full STDOUT/STDERR capture.
     .DESCRIPTION
         Standardized wrapper for external processes.
-        Logga comando, argomenti, exit code, durata ed eventuali errori.
-        Restituisce un oggetto con Success, ExitCode, StdOut, StdErr, Elapsed.
-        Non scrive mai direttamente su console.
+        Logs the command, arguments, exit code, duration, and any errors.
+        Returns an object with Success, ExitCode, StdOut, StdErr, and Elapsed.
+        Never writes directly to the console.
     #>
     [CmdletBinding()]
     param(
@@ -267,7 +267,7 @@ function Invoke-WithSpinner {
 function Start-InterruptibleCountdown {
     <#
     .SYNOPSIS
-        Conto alla rovescia interrompibile dall'utente con pressione di un tasto.
+        Countdown that the user can interrupt by pressing a key.
     #>
     param([int]$Seconds = 30, [string]$Message, [switch]$Suppress)
     if ($Suppress) { return $true }
@@ -334,7 +334,7 @@ function Remove-ItemSafely {
     <#
     .SYNOPSIS
         Silently removes a path (file or directory) without exceptions.
-        Versione generalizzata di Invoke-OfficeSilentRemoval.
+        Generalized version of Invoke-OfficeSilentRemoval.
     #>
     param([Parameter(Mandatory = $true)][string]$Path, [switch]$Recurse)
     if (-not (Test-Path $Path)) { return $false }
@@ -352,11 +352,11 @@ function Remove-ItemSafely {
 function Invoke-ToolkitDownload {
     <#
     .SYNOPSIS
-        Download di un file con retry automatico, barra di progresso, referrer AMD e messaggi standardizzati.
+        Downloads a file with automatic retries, a progress bar, an AMD referrer, and standardized messages.
     .DESCRIPTION
-        Implementa download con visualizzazione della barra di progresso in tempo reale.
-        Supporta URL AMD con referrer per aggirare i blocchi.
-        Retry automatico e fallback robusti per connessioni instabili.
+        Downloads files while displaying a progress bar in real time.
+        Supports AMD URLs with a referrer to bypass download restrictions.
+        Provides automatic retries and robust fallbacks for unstable connections.
     #>
     param(
         [string]$Uri,
@@ -371,7 +371,7 @@ function Invoke-ToolkitDownload {
         try {
             Write-StyledMessage -Type 'Info' -Text ("📥 " + (Get-SourceTextLoc 'uiText.download0' -Args @($Description)))
 
-            # Creare parent directory se non esiste
+        # Create the parent directory if it does not exist
             $parentDir = Split-Path -Parent $OutputPath
             if (-not (Test-Path $parentDir)) {
                 New-Item -Path $parentDir -ItemType Directory -Force | Out-Null
@@ -468,11 +468,11 @@ function Invoke-ToolkitDownload {
                             $col = 'Cyan'
                         }
                         else {
-                            # === Barra COMPLETAMENTE SCOLLEGATA dal download ===
+                # === Progress bar COMPLETELY INDEPENDENT of the download ===
                             # Use only elapsed time since the fake bar appeared
                             if ($fakeProgressStart) {
                                 $elapsed = ((Get-Date) - $fakeProgressStart).TotalSeconds
-                                # Rampa uniforme e prevedibile - max 95% durante il download
+                    # Smooth, predictable ramp - maximum 95% during the download
                                 # (100% is forced only when the file is written to disk)
                                 $percent = [math]::Min(95, [math]::Floor(8 + ($elapsed * 1.52)))
                             }
@@ -493,7 +493,7 @@ function Invoke-ToolkitDownload {
                             $shouldUpdate = $true
                         }
                         elseif ($totalBytes -gt 0) {
-                            # Known size: rate-limited + percent change (smooth, non-schizzofrenico)
+                    # Known size: rate-limited + percent change (smooth, without erratic jumps)
                             if ($percent -ne $lastPercent -and $timeSinceLast -gt 250) {
                                 $shouldUpdate = $true
                             }
@@ -533,7 +533,7 @@ function Invoke-ToolkitDownload {
             }
         }
         catch {
-            # Pulire in caso di errore
+        # Clean up on error
             if (Test-Path $OutputPath) {
                 Remove-Item $OutputPath -Force -ErrorAction SilentlyContinue
             }

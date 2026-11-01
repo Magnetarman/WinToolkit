@@ -82,7 +82,7 @@ function Write-StyledMessage {
 function Show-ProgressBar {
     <#
     .SYNOPSIS
-        Mostra una barra di progresso testuale nella console.
+        Displays a text progress bar in the console.
     #>
     param([string]$Activity, [string]$Status, [int]$Percent, [string]$Icon = '⏳', [string]$Spinner = '', [string]$Color = 'Green')
     $safePercent = [math]::Max(0, [math]::Min(100, $Percent))
@@ -122,8 +122,8 @@ function Show-ProgressBar {
 function Write-ProgressUpdate {
     <#
     .SYNOPSIS
-        Helper DRY: pulisce la riga e disegna Show-ProgressBar in un'unica chiamata.
-        Usato da tutti gli spinner, download e countdown per evitare duplicazione di Clear + Write.
+        DRY helper: clears the line and renders Show-ProgressBar in one call.
+        Used by all spinners, downloads, and countdowns to avoid duplicating Clear + Write.
     #>
     param(
         [string]$Activity,
@@ -165,7 +165,7 @@ function Get-SpinnerChar {
 function Show-Header {
     <#
     .SYNOPSIS
-        Mostra l'intestazione standardizzata del toolkit.
+        Displays the standard toolkit header.
     #>
     param([string]$SubTitle)
     if ($Global:GuiSessionActive) { return }
@@ -194,13 +194,13 @@ function Show-Header {
 function Show-ConsoleTable {
     <#
     .SYNOPSIS
-        Visualizza dati in formato tabellare ASCII nella console.
+        Displays data as an ASCII table in the console.
     .PARAMETER Rows
-        Array di hashtable o pscustomobject da visualizzare.
+        Array of hashtables or pscustomobjects to display.
     .PARAMETER Columns
-        Array di hashtable con chiavi 'Header' (string) e 'Key' (string). Opzionale: 'Color'.
+        Array of hashtables with 'Header' (string) and 'Key' (string) keys. Optional: 'Color'.
     .PARAMETER Title
-        Titolo opzionale da mostrare sopra la tabella.
+        Optional title to display above the table.
     #>
     [CmdletBinding()]
     param(
