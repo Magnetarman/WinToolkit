@@ -37,7 +37,10 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.10"
+$ProfileVersion = "2.6.0.11"
+
+# Fix PowerShell 7 update notification crash on small terminal widths
+$env:POWERSHELL_UPDATECHECK = 'Off'
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
@@ -2027,6 +2030,15 @@ if (Test-CommandExists -Name "fastfetch") {
 
 Write-Host ""
 Write-Host "💡 Type 'help' to discover custom commands." -ForegroundColor Yellow
+# Persistently disable PowerShell update notifications (host-level crash on narrow
+# terminals: ShowUpdateNotification calls PadRight with a negative width). The
+# process-level variable above is too late for the first run, so persist it in
+# the user environment for every future pwsh invocation.
+if ([Environment]::GetEnvironmentVariable('POWERSHELL_UPDATECHECK', 'User') -ne 'Off') {
+    [Environment]::SetEnvironmentVariable('POWERSHELL_UPDATECHECK', 'Off', 'User')
+    Write-Warn "POWERSHELL_UPDATECHECK persisted as 'Off'. Restart the terminal to apply."
+}
+
 Write-Success "Profile loaded - Version: $ProfileVersion"
 
 # ============================================================================
