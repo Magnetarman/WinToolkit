@@ -17,6 +17,7 @@ $Global:NeedsFinalReboot = $false
 $Global:SourceTextLanguage = 'en-US'
 $Global:SourceTextLanguageData = $null
 $Global:SourceTextDefaultLanguageData = $null
+$Global:SourceTextEmbeddedLanguageData = @{}
 $Global:SourceTextPreparedLanguagesDir = $null
 $Global:SourceTextKeyAliases = @{}
 
@@ -62,15 +63,32 @@ function Get-AvailableSourceTextLanguages {
 function Import-SourceTextLanguageFile {
     param([string]$LanguageCode)
 
-    $languageDir = Get-SourceTextLanguageDirectory
-    try {
-        $localizedData = $null
-        Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDir -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
-        return $localizedData
+    # The compiler embeds the matching catalogues so stale downloads cannot hide new messages or warnings.
+    if ($Global:SourceTextEmbeddedLanguageData -and $Global:SourceTextEmbeddedLanguageData.ContainsKey($LanguageCode)) {
+        return $Global:SourceTextEmbeddedLanguageData[$LanguageCode].Clone()
     }
-    catch {
-        return $null
+
+    # Source checkouts use their bundled files first; downloaded cultures remain available as a fallback.
+    $directories = @()
+    if ($PSScriptRoot) {
+        $directories += Join-Path $PSScriptRoot 'languages'
+        if ((Split-Path $PSScriptRoot -Leaf) -eq 'wintoolkit-modules') {
+            $directories += Join-Path (Split-Path $PSScriptRoot -Parent) 'languages'
+        }
     }
+    $directories += Join-Path (Get-Location).Path 'languages'
+    $directories += Get-SourceTextLanguageDirectory
+    foreach ($languageDir in ($directories | Select-Object -Unique)) {
+        try {
+            $localizedData = $null
+            Import-LocalizedData -BindingVariable localizedData -BaseDirectory $languageDir -FileName 'WinToolkit.psd1' -UICulture $LanguageCode -ErrorAction Stop
+            return $localizedData
+        }
+        catch {
+            continue
+        }
+    }
+    return $null
 }
 
 

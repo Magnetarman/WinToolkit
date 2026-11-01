@@ -149,6 +149,34 @@ try {
     foreach ($mf in $moduleFiles) {
         $templateLines += (Get-Content -LiteralPath $mf.FullName -Encoding UTF8 -ErrorAction Stop)
     }
+
+    # Bind translations to the same build as their call sites, independently of the shared download cache.
+    $languagePlaceholder = '$Global:SourceTextEmbeddedLanguageData = @{}'
+    if ($templateLines -contains $languagePlaceholder) {
+        $languageRoot = Join-Path $scriptPath 'languages'
+        $languageFiles = @(Get-ChildItem -LiteralPath $languageRoot -Directory -ErrorAction Stop |
+            ForEach-Object { Get-Item -LiteralPath (Join-Path $_.FullName 'WinToolkit.psd1') -ErrorAction Stop } |
+            Sort-Object FullName)
+        if (-not ($languageFiles | Where-Object { $_.Directory.Name -eq 'en-US' })) {
+            throw 'The English translation catalogue is required to build WinToolkit.'
+        }
+        $embeddedLines = @('$Global:SourceTextEmbeddedLanguageData = @{')
+        foreach ($languageFile in $languageFiles) {
+            $culture = $languageFile.Directory.Name
+            $catalogue = $null
+            Import-LocalizedData -BindingVariable catalogue -BaseDirectory $languageRoot -FileName 'WinToolkit.psd1' -UICulture $culture -ErrorAction Stop
+            $embeddedLines += "    '{0}' = @{{" -f $culture.Replace("'", "''")
+            foreach ($key in ($catalogue.Keys | Sort-Object)) {
+                $embeddedLines += "        '{0}' = '{1}'" -f $key.Replace("'", "''"), ([string]$catalogue[$key]).Replace("'", "''")
+            }
+            $embeddedLines += '    }'
+        }
+        $embeddedLines += '}'
+        $templateLines = @(foreach ($line in $templateLines) {
+            if ($line -eq $languagePlaceholder) { $embeddedLines }
+            else { $line }
+        })
+    }
     $toolFiles = Get-ChildItem -Path $toolFolder -Filter "*.ps1" -File -ErrorAction Stop
 }
 catch {

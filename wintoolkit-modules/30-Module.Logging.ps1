@@ -80,7 +80,8 @@ function Write-ToolkitLog {
     $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-    $clean = $clean -replace '[⌀-⏿☀-➿\uD800-\uDFFF]', ''
+    # Console styles are emitted separately; preserve Unicode account names and paths in UTF-8 logs.
+    # Removing symbols or surrogate pairs would corrupt valid values inside the message.
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {

@@ -17,6 +17,8 @@ Describe 'WinDeleteUserProfiles safe regressions' {
         $uiPath = Join-Path $script:RepoRoot 'wintoolkit-modules\20-Module.UI.ps1'
 
         $definitions = @(
+            @{ Path = $toolPath; Name = 'Write-ProfileCleanupMessage' },
+            @{ Path = $toolPath; Name = 'Write-ProfileCleanupTable' },
             @{ Path = $toolPath; Name = 'New-ProtectedNameSet' },
             @{ Path = $toolPath; Name = 'Test-ProtectedLocalAccount' },
             @{ Path = $toolPath; Name = 'Get-ProtectedLocalAccountSids' },
@@ -91,7 +93,8 @@ Describe 'WinDeleteUserProfiles safe regressions' {
         $script:SavedGlobals = @{}
         foreach ($name in @(
             'SourceTextLanguageData', 'SourceTextDefaultLanguageData', 'SourceTextKeyAliases',
-            'CurrentLogFile', 'CurrentToolName', 'Spinners', 'GuiSessionActive', 'MsgStyles'
+            'CurrentLogFile', 'CurrentToolName', 'Spinners', 'GuiSessionActive', 'MsgStyles',
+            'ProgressLineStart', 'ProgressLineRows'
         )) {
             $variable = Get-Variable -Name $name -Scope Global -ErrorAction SilentlyContinue
             $script:SavedGlobals[$name] = @{ Exists = $null -ne $variable; Value = if ($variable) { $variable.Value } else { $null } }
@@ -106,10 +109,20 @@ Describe 'WinDeleteUserProfiles safe regressions' {
         $Global:CurrentToolName = 'ProfileCleanupProbe'
         $Global:Spinners = '|/-\'.ToCharArray()
         $Global:GuiSessionActive = $false
+        $Global:ProgressLineStart = $null
+        $Global:ProgressLineRows = 0
+        $Global:MsgStyles = @{
+            Info = @{ Icon = '[INFO]'; Color = 'Cyan' }
+            Success = @{ Icon = '[SUCCESS]'; Color = 'Green' }
+            Warning = @{ Icon = '[WARNING]'; Color = 'Yellow' }
+            Error = @{ Icon = '[ERROR]'; Color = 'Red' }
+        }
+        $script:ConsoleMessages = [System.Collections.Generic.List[string]]::new()
         Set-Content -LiteralPath $Global:CurrentLogFile -Value '' -Encoding UTF8
+        Mock Write-Host { $script:ConsoleMessages.Add([string]$Object) }
         Mock Write-ProgressUpdate {}
         Mock Clear-ProgressLine {}
-        Mock Write-StyledMessage {}
+        Mock Write-StyledMessage { & $script:StyledMessageImplementation -Type $Type -Text $Text -NoNewline:$NoNewline }
         Mock Remove-CimInstance { throw 'Unexpected CIM deletion in regression test' }
         Mock Remove-Item { throw 'Unexpected deletion target in regression test' }
         Mock Invoke-ExternalCommandWithLog { throw 'Unexpected external command in regression test' }
@@ -146,7 +159,7 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             Mock Get-CimInstance {}
             Mock Get-ChildItem {} -ParameterFilter { $Path -like 'HKLM:*' -or $LiteralPath -like 'HKLM:*' }
             Mock Get-ItemPropertyValue { $script:AccountUsersRoot } -ParameterFilter { $Name -eq 'ProfilesDirectory' }
-            Mock Write-Host {}
+            Mock Write-Host { $script:ConsoleMessages.Add([string]$Object) }
             Mock Start-ToolkitSession {}
             Mock Invoke-ToolkitReboot {}
             Mock Write-ToolkitError {}
@@ -161,6 +174,26 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             $script:LocalAccounts.Count | Should -Be 0
             Should -Invoke Remove-CimInstance -Times 0 -Exactly
             Should -Invoke Remove-Item -Times 0 -Exactly
+        }
+
+        It 'shows each account success in the console and log exactly once' {
+            $account = $script:LocalAccounts[0]
+            $expectedMessage = Get-SourceTextLoc 'toolText.localAccountRemoved01' -Args @($account.Name, $account.SID)
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            @($script:ConsoleMessages | Where-Object { $_.EndsWith($expectedMessage) }).Count | Should -Be 1
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_.EndsWith($expectedMessage) }).Count | Should -Be 1
+        }
+
+        It 'shows each account failure in the console and log exactly once' {
+            Mock Remove-LocalUser { throw 'Synthetic account access denied' }
+            $expectedMessage = Get-SourceTextLoc 'toolText.localAccountRemovalFailed01' -Args @('Leftover', 'Synthetic account access denied')
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            @($script:ConsoleMessages | Where-Object { $_.EndsWith($expectedMessage) }).Count | Should -Be 1
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match '\[ERROR\]' -and $_.EndsWith($expectedMessage) }).Count | Should -Be 1
         }
 
         It 'removes the account by SID after cleaning a differently named profile folder' {
@@ -463,8 +496,10 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             $Global:MsgStyles = @{
                 Info = @{ Icon = '[INFO]'; Color = 'Cyan' }
                 Warning = @{ Icon = '[WARNING]'; Color = 'Yellow' }
+                Success = @{ Icon = '[SUCCESS]'; Color = 'Green' }
+                Error = @{ Icon = '[ERROR]'; Color = 'Red' }
             }
-            Mock Write-Host {}
+            Mock Write-Host { $script:ConsoleMessages.Add([string]$Object) }
             Mock Write-StyledMessage { & $script:StyledMessageImplementation -Type $Type -Text $Text }
             Mock Get-CimInstance {}
             Mock Get-ChildItem {} -ParameterFilter { $Path -eq $usersRoot -or $Path -like 'HKLM:*' }
@@ -505,6 +540,19 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 1
         }
 
+        It 'shows protected residual-folder exclusions in the console and log exactly once' {
+            $folderPath = Join-Path $usersRoot 'Default'
+            Mock Get-ChildItem {
+                [pscustomobject]@{ Name = 'Default'; FullName = (Join-Path $usersRoot 'Default'); Attributes = [IO.FileAttributes]::Directory }
+            } -ParameterFilter { $Path -eq $usersRoot }
+            $expectedMessage = Get-SourceTextLoc 'toolText.residualFolderExcludedForProtectedName01' -Args @('Default', $folderPath)
+
+            @(Get-ResidualUserFolders).Count | Should -Be 0
+
+            @($script:ConsoleMessages | Where-Object { $_.EndsWith($expectedMessage) }).Count | Should -Be 1
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_.EndsWith($expectedMessage) }).Count | Should -Be 1
+        }
+
         It 'logs session completion once after a <Name> exit' -ForEach @(
             @{ Name = 'normal'; Fail = $false },
             @{ Name = 'failed'; Fail = $true }
@@ -528,6 +576,68 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             if ($Fail) { $failure | Should -Be 'Synthetic session failure' }
             else { $failure | Should -BeNullOrEmpty }
             @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -match $pattern }).Count | Should -Be 1
+        }
+    }
+
+    Context 'Permanent messages and target tables share console and log content' {
+        It 'retains identical nonblank rows and full values for the <Kind> target table' -ForEach @(
+            @{ Kind = 'account' }, @{ Kind = 'profile' }, @{ Kind = 'residual folder' }
+        ) {
+            $longValue = 'LongValue-' + ('x' * 300)
+            $unicodeName = '☀𠜎 First'
+            $unicodePath = 'C:\Users\☀𠜎\Documents'
+            $rows = switch ($Kind) {
+                'account' {
+                    @([pscustomobject]@{ Name = $unicodeName; SID = $longValue }, [pscustomobject]@{ Name = 'Second'; SID = 'S-1-5-21-100-200-300-1102' })
+                }
+                'profile' {
+                    @([pscustomobject]@{ User = $unicodeName; Loaded = $false; LastUseTime = '2026-01-01'; Path = $longValue }, [pscustomobject]@{ User = 'Second'; Loaded = $false; LastUseTime = '2026-01-02'; Path = $unicodePath })
+                }
+                default {
+                    @([pscustomobject]@{ Name = $unicodeName; Path = $longValue }, [pscustomobject]@{ Name = 'Second'; Path = $unicodePath })
+                }
+            }
+
+            $rows | Write-ProfileCleanupTable
+
+            $prefix = '^\[\d{2}:\d{2}:\d{2}\] \[INFO\] '
+            $consoleRows = @($script:ConsoleMessages | ForEach-Object { $_ -replace $prefix, '' })
+            $logRows = @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_ -replace $prefix, '' })
+            $consoleRows.Count | Should -Be 4
+            ($consoleRows -join "`n") | Should -Be ($logRows -join "`n")
+            ($consoleRows -join "`n") | Should -Match ([regex]::Escape($longValue))
+            ($logRows -join "`n") | Should -Match ([regex]::Escape($unicodeName))
+            if ($Kind -ne 'account') {
+                ($logRows -join "`n") | Should -Match ([regex]::Escape($unicodePath))
+            }
+        }
+
+        It 'clears an active progress line before displaying a permanent message' {
+            $script:MessageEvents = [System.Collections.Generic.List[string]]::new()
+            $Global:ProgressLineStart = [pscustomobject]@{ X = 0; Y = 1 }
+            Mock Clear-ProgressLine {
+                $script:MessageEvents.Add('Clear')
+                $Global:ProgressLineStart = $null
+            }
+            Mock Write-Host {
+                $script:MessageEvents.Add('Display')
+                $script:ConsoleMessages.Add([string]$Object)
+            }
+
+            Write-ProfileCleanupMessage -Type 'Info' -Text 'First permanent message'
+            Write-ProfileCleanupMessage -Type 'Info' -Text 'Second permanent message'
+
+            ($script:MessageEvents -join ',') | Should -Be 'Clear,Display,Display'
+            Should -Invoke Clear-ProgressLine -Times 1 -Exactly
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -like '*permanent message' }).Count | Should -Be 2
+        }
+
+        It 'does not clear progress when no progress line is active' {
+            Write-ProfileCleanupMessage -Type 'Info' -Text 'Permanent message'
+
+            Should -Invoke Clear-ProgressLine -Times 0 -Exactly
+            $script:ConsoleMessages.Count | Should -Be 1
+            @(Get-Content -LiteralPath $Global:CurrentLogFile | Where-Object { $_ -like '*Permanent message' }).Count | Should -Be 1
         }
     }
 
