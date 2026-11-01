@@ -18,6 +18,10 @@ Describe 'WinDeleteUserProfiles safe regressions' {
 
         $definitions = @(
             @{ Path = $toolPath; Name = 'New-ProtectedNameSet' },
+            @{ Path = $toolPath; Name = 'Test-ProtectedLocalAccount' },
+            @{ Path = $toolPath; Name = 'Get-ProtectedLocalAccountSids' },
+            @{ Path = $toolPath; Name = 'Get-RemovableLocalAccounts' },
+            @{ Path = $toolPath; Name = 'Remove-LocalUserAccounts' },
             @{ Path = $toolPath; Name = 'Get-RemovableUserProfiles' },
             @{ Path = $toolPath; Name = 'Get-RegisteredProfilePathSet' },
             @{ Path = $toolPath; Name = 'Get-ResidualUserFolders' },
@@ -53,6 +57,7 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             param($node)
             $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'WinDeleteUserProfiles'
         }, $true)
+        . ([scriptblock]::Create($entry.Extent.Text))
         $sessionTry = $entry.Body.EndBlock.Statements | Where-Object { $_ -is [System.Management.Automation.Language.TryStatementAst] }
         $finallyText = $sessionTry.Finally.Extent.Text
         $script:SessionFinallyImplementation = [scriptblock]::Create($finallyText.Substring(1, $finallyText.Length - 2))
@@ -63,6 +68,21 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             param([object]$InputObject)
             throw 'CIM deletion must be mocked in regression tests'
         }
+
+        # Never bind account regression tests to the machine's account database.
+        function Get-LocalUser {
+            [CmdletBinding()]
+            param([string[]]$SID)
+            throw 'Account enumeration must be mocked in regression tests'
+        }
+        function Remove-LocalUser {
+            [CmdletBinding(SupportsShouldProcess = $true)]
+            param([string[]]$SID)
+            throw 'Account deletion must be mocked in regression tests'
+        }
+        function Start-ToolkitSession { param($ToolName, $SubTitle) }
+        function Invoke-ToolkitReboot { param($Message, $Seconds, [switch]$SuppressIndividualReboot) }
+        function Write-ToolkitError { param($Record, $ToolName) }
 
         Import-LocalizedData -BindingVariable italianData -BaseDirectory (Join-Path $script:RepoRoot 'languages') -FileName 'WinToolkit.psd1' -UICulture 'it-IT'
         Import-LocalizedData -BindingVariable englishData -BaseDirectory (Join-Path $script:RepoRoot 'languages') -FileName 'WinToolkit.psd1' -UICulture 'en-US'
@@ -93,6 +113,8 @@ Describe 'WinDeleteUserProfiles safe regressions' {
         Mock Remove-CimInstance { throw 'Unexpected CIM deletion in regression test' }
         Mock Remove-Item { throw 'Unexpected deletion target in regression test' }
         Mock Invoke-ExternalCommandWithLog { throw 'Unexpected external command in regression test' }
+        Mock Get-LocalUser { throw 'Unexpected account enumeration in regression test' }
+        Mock Remove-LocalUser { throw 'Unexpected account deletion in regression test' }
     }
 
     AfterAll {
@@ -104,6 +126,333 @@ Describe 'WinDeleteUserProfiles safe regressions' {
             else {
                 Remove-Variable -Name $name -Scope Global -ErrorAction SilentlyContinue
             }
+        }
+    }
+
+    Context 'Local account cleanup orchestration' {
+        BeforeEach {
+            $script:AccountUsersRoot = Join-Path $TestDrive 'Users'
+            [void][System.IO.Directory]::CreateDirectory($script:AccountUsersRoot)
+            $script:LocalAccounts = @(
+                [pscustomobject]@{ Name = 'Leftover'; SID = 'S-1-5-21-100-200-300-1101'; LastLogon = $null }
+            )
+            Mock Get-LocalUser {
+                if ($SID) { $script:LocalAccounts | Where-Object { [string]$_.SID -eq [string]$SID[0] } }
+                else { $script:LocalAccounts }
+            }
+            Mock Remove-LocalUser {
+                $script:LocalAccounts = @($script:LocalAccounts | Where-Object { [string]$_.SID -ne [string]$SID[0] })
+            }
+            Mock Get-CimInstance {}
+            Mock Get-ChildItem {} -ParameterFilter { $Path -like 'HKLM:*' -or $LiteralPath -like 'HKLM:*' }
+            Mock Get-ItemPropertyValue { $script:AccountUsersRoot } -ParameterFilter { $Name -eq 'ProfilesDirectory' }
+            Mock Write-Host {}
+            Mock Start-ToolkitSession {}
+            Mock Invoke-ToolkitReboot {}
+            Mock Write-ToolkitError {}
+        }
+
+        It 'removes leftover local accounts even when profile folders and registry entries are already gone' {
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            Should -Invoke Remove-LocalUser -Times 1 -Exactly -ParameterFilter {
+                [string]$SID[0] -eq 'S-1-5-21-100-200-300-1101' -and $ErrorAction -eq 'Stop' -and -not $Confirm
+            }
+            $script:LocalAccounts.Count | Should -Be 0
+            Should -Invoke Remove-CimInstance -Times 0 -Exactly
+            Should -Invoke Remove-Item -Times 0 -Exactly
+        }
+
+        It 'removes the account by SID after cleaning a differently named profile folder' {
+            $script:AccountProfiles = @([pscustomobject]@{
+                LocalPath = (Join-Path $script:AccountUsersRoot 'DifferentFolder')
+                SID = $script:LocalAccounts[0].SID; Loaded = $false; Special = $false
+            })
+            $script:AccountEvents = [System.Collections.Generic.List[string]]::new()
+            Mock Get-CimInstance { if ($ClassName -eq 'Win32_UserProfile') { $script:AccountProfiles } }
+            Mock Test-Path { [System.IO.Directory]::Exists($LiteralPath) }
+            Mock Test-Path { $false } -ParameterFilter { $LiteralPath -like 'HKLM:*' }
+            Mock Remove-CimInstance {
+                $script:AccountEvents.Add('Profile')
+                $script:AccountProfiles = @()
+            }
+            Mock Remove-LocalUser {
+                $script:AccountEvents.Add("Account:$($SID[0])")
+                $script:LocalAccounts = @()
+            }
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            ($script:AccountEvents -join ',') | Should -Be 'Profile,Account:S-1-5-21-100-200-300-1101'
+        }
+
+        It 'preserves a renamed built-in account and its differently named profile' {
+            $script:LocalAccounts = @([pscustomobject]@{ Name = 'RenamedAdmin'; SID = 'S-1-5-21-100-200-300-500' })
+            Mock Get-CimInstance {
+                if ($ClassName -eq 'Win32_UserProfile') {
+                    [pscustomobject]@{
+                        LocalPath = (Join-Path $script:AccountUsersRoot 'FormerAdminFolder')
+                        SID = 'S-1-5-21-100-200-300-500'; Loaded = $false; Special = $false
+                    }
+                }
+            }
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            Should -Invoke Remove-CimInstance -Times 0 -Exactly
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+
+        It 'includes an account deletion failure in the summary and restart handling' {
+            Mock Remove-LocalUser { throw 'Synthetic account access denied' }
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            Get-Content -LiteralPath $Global:CurrentLogFile -Raw | Should -Match '\[ERROR\].*Synthetic account access denied'
+            $message = Get-SourceTextLoc 'toolText.itemsNotRemoved0' -Args @(1)
+            Should -Invoke Write-StyledMessage -Times 1 -Exactly -ParameterFilter { $Text -eq $message }
+            Should -Invoke Invoke-ToolkitReboot -Times 1 -Exactly -ParameterFilter { $SuppressIndividualReboot }
+        }
+
+        It 'reports failure when account deletion returns without actually removing the account' {
+            Mock Remove-LocalUser {}
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            $message = Get-SourceTextLoc 'toolText.localAccountStillExists0' -Args @($script:LocalAccounts[0].SID)
+            Get-Content -LiteralPath $Global:CurrentLogFile -Raw | Should -Match ([regex]::Escape($message))
+            Should -Invoke Invoke-ToolkitReboot -Times 1 -Exactly
+        }
+
+        It 'stops before deleting profile data when local account discovery fails' {
+            Mock Get-LocalUser { throw 'Synthetic account discovery failure' }
+
+            { WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup } | Should -Throw '*Synthetic account discovery failure*'
+
+            Should -Invoke Remove-CimInstance -Times 0 -Exactly
+            Should -Invoke Remove-Item -Times 0 -Exactly
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+
+        It 'preserves accounts that become active between candidate discovery and account deletion' {
+            $script:LogonScans = 0
+            Mock Get-CimInstance {
+                if ($ClassName -eq 'Win32_LoggedOnUser') {
+                    $script:LogonScans++
+                    if ($script:LogonScans -ge 3) {
+                        [pscustomobject]@{ Antecedent = [pscustomobject]@{ Domain = $env:COMPUTERNAME; Name = 'Leftover' } }
+                    }
+                }
+            }
+
+            WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup -SuppressIndividualReboot
+
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+            $message = Get-SourceTextLoc 'toolText.localAccountProtected0' -Args @('Leftover')
+            Get-Content -LiteralPath $Global:CurrentLogFile -Raw | Should -Match ([regex]::Escape($message))
+        }
+
+        It 'stops before deleting data when independent logon discovery fails' {
+            Mock Get-CimInstance { throw 'Synthetic logon discovery failure' } -ParameterFilter { $ClassName -eq 'Win32_LoggedOnUser' }
+
+            { WinDeleteUserProfiles -UsersRoot $script:AccountUsersRoot -SkipResidualFolderCleanup } | Should -Throw '*Synthetic logon discovery failure*'
+
+            Should -Invoke Remove-CimInstance -Times 0 -Exactly
+            Should -Invoke Remove-Item -Times 0 -Exactly
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+    }
+
+    Context 'Local account selection protections' {
+        BeforeEach {
+            $usersRoot = [System.IO.Path]::GetFullPath((Join-Path $TestDrive ([guid]::NewGuid().ToString())) + '\')
+            $profilesDirectory = $usersRoot
+            $computerName = 'ProfileTestMachine'
+            $currentUserSid = 'S-1-5-21-100-200-300-1100'
+            $protectedProfileNames = @('Public', 'Default', 'DefaultAccount', 'WDAGUtilityAccount', 'WSIAccount', 'CurrentAccount')
+            $minimumLastUseDate = $null
+            $script:CandidateAccount = [pscustomobject]@{
+                Name = 'Leftover'; SID = 'S-1-5-21-100-200-300-1101'; LastLogon = (Get-Date).AddDays(-90)
+            }
+            Mock Get-CimInstance {}
+            Mock Get-ChildItem {} -ParameterFilter { $LiteralPath -like 'HKLM:*' }
+        }
+
+        It 'protects <Name> independently of profile folder names' -ForEach @(
+            @{ Name = 'RenamedAdministrator'; SID = 'S-1-5-21-100-200-300-500' },
+            @{ Name = 'RenamedGuest'; SID = 'S-1-5-21-100-200-300-501' },
+            @{ Name = 'RenamedDefaultAccount'; SID = 'S-1-5-21-100-200-300-503' },
+            @{ Name = 'RenamedWDAGAccount'; SID = 'S-1-5-21-100-200-300-504' },
+            @{ Name = 'WSIAccount'; SID = 'S-1-5-21-100-200-300-1001' },
+            @{ Name = 'CurrentRenamed'; SID = 'S-1-5-21-100-200-300-1100' },
+            @{ Name = 'CURRENTACCOUNT'; SID = 'S-1-5-21-100-200-300-1102' },
+            @{ Name = 'System'; SID = 'S-1-5-18' },
+            @{ Name = 'Unknown'; SID = '' }
+        ) {
+            $account = [pscustomobject]@{ Name = $Name; SID = $SID }
+
+            @(Get-RemovableLocalAccounts -Accounts @($account)).Count | Should -Be 0
+            @(Remove-LocalUserAccounts -Accounts @($account)).Count | Should -Be 0
+
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+
+        It 'preserves every account with a remaining profile, including loaded or outside-root profiles' {
+            Mock Get-CimInstance {
+                [pscustomobject]@{ SID = $script:CandidateAccount.SID; LocalPath = 'D:\OtherProfiles\Leftover'; Loaded = $true }
+            }
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount)).Count | Should -Be 0
+        }
+
+        It 'preserves active local logons even without a loaded or registered profile' {
+            Mock Get-CimInstance {
+                [pscustomobject]@{ Antecedent = [pscustomobject]@{ Domain = 'ProfileTestMachine'; Name = 'Leftover' } }
+            } -ParameterFilter { $ClassName -eq 'Win32_LoggedOnUser' }
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount)).Count | Should -Be 0
+        }
+
+        It 'preserves accounts configured for services using <StartName>' -ForEach @(
+            @{ StartName = 'Leftover' },
+            @{ StartName = '.\Leftover' },
+            @{ StartName = 'ProfileTestMachine\Leftover' },
+            @{ StartName = 'Leftover@ProfileTestMachine' }
+        ) {
+            Mock Get-CimInstance { [pscustomobject]@{ StartName = $StartName; State = 'Stopped' } } -ParameterFilter { $ClassName -eq 'Win32_Service' }
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount)).Count | Should -Be 0
+        }
+
+        It 'preserves accounts whose ProfileList entry remains<Backup>' -ForEach @(
+            @{ Backup = '' }, @{ Backup = '.bak' }
+        ) {
+            Mock Get-ChildItem { [pscustomobject]@{ PSChildName = ($script:CandidateAccount.SID + $Backup) } } -ParameterFilter { $LiteralPath -like 'HKLM:*' }
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount)).Count | Should -Be 0
+        }
+
+        It 'preserves the account after profile cleanup failed even when CIM and registry entries are gone' {
+            $result = [pscustomobject]@{ Sid = $script:CandidateAccount.SID; Success = $false }
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount) -ProfileResults @($result)).Count | Should -Be 0
+        }
+
+        It 'preserves accounts with residual profile folders that were not removed' {
+            [void][System.IO.Directory]::CreateDirectory((Join-Path $usersRoot $script:CandidateAccount.Name))
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount)).Count | Should -Be 0
+        }
+
+        It 'does not select unrelated profile-less accounts under a custom users root' {
+            $profilesDirectory = [System.IO.Path]::GetFullPath((Join-Path $TestDrive 'OtherUsers') + '\')
+
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount)).Count | Should -Be 0
+
+            $result = [pscustomobject]@{ Sid = $script:CandidateAccount.SID; Success = $true }
+            @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount) -ProfileResults @($result)).Count | Should -Be 1
+        }
+
+        It 'requires a known old logon for profile-less accounts when an age limit is requested' {
+            $minimumLastUseDate = (Get-Date).AddDays(-30)
+            $accounts = @(
+                $script:CandidateAccount,
+                [pscustomobject]@{ Name = 'Recent'; SID = 'S-1-5-21-100-200-300-1102'; LastLogon = (Get-Date).AddDays(-1) },
+                [pscustomobject]@{ Name = 'NeverUsed'; SID = 'S-1-5-21-100-200-300-1103'; LastLogon = $null }
+            )
+
+            $targets = @(Get-RemovableLocalAccounts -Accounts $accounts)
+
+            $targets.Count | Should -Be 1
+            $targets[0].Name | Should -Be 'Leftover'
+        }
+
+        It 'does not delete accounts when profile discovery fails in <Provider>' -ForEach @(
+            @{ Provider = 'CIM' }, @{ Provider = 'Registry' }
+        ) {
+            if ($Provider -eq 'CIM') { Mock Get-CimInstance { throw 'Synthetic profile discovery failure' } }
+            else { Mock Get-ChildItem { throw 'Synthetic profile discovery failure' } -ParameterFilter { $LiteralPath -like 'HKLM:*' } }
+
+            { Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount) } | Should -Throw '*Synthetic profile discovery failure*'
+
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+
+        It 'continues with the next account after a deletion failure' {
+            $accounts = @($script:CandidateAccount, [pscustomobject]@{ Name = 'Next'; SID = 'S-1-5-21-100-200-300-1102' })
+            $script:RemainingAccounts = $accounts
+            Mock Remove-LocalUser {
+                if ([string]$SID[0] -eq $script:CandidateAccount.SID) { throw 'Synthetic account failure' }
+                $script:RemainingAccounts = @($script:RemainingAccounts | Where-Object { [string]$_.SID -ne [string]$SID[0] })
+            }
+            Mock Get-LocalUser {
+                if ($SID) { $script:RemainingAccounts | Where-Object { [string]$_.SID -eq [string]$SID[0] } }
+                else { $script:RemainingAccounts }
+            }
+
+            $results = @(Remove-LocalUserAccounts -Accounts $accounts)
+
+            $results.Count | Should -Be 2
+            $results[0].Success | Should -BeFalse
+            $results[1].Success | Should -BeTrue
+            $results[1].Type | Should -Be 'LocalAccount'
+            Should -Invoke Remove-LocalUser -Times 2 -Exactly
+        }
+
+        It 'does not count failed account verification as successful deletion' {
+            Mock Remove-LocalUser {}
+            Mock Get-LocalUser {
+                if ($SID) { $script:CandidateAccount }
+                else { throw 'Synthetic verification failure' }
+            }
+
+            $result = Remove-LocalUserAccounts -Accounts @($script:CandidateAccount)
+
+            $result.Success | Should -BeFalse
+            Get-Content -LiteralPath $Global:CurrentLogFile -Raw | Should -Match '\[ERROR\].*Synthetic verification failure'
+            Should -Invoke Remove-LocalUser -Times 1 -Exactly
+        }
+
+        It 'does not delete accounts if activity discovery fails immediately before removal' {
+            Mock Get-LocalUser { $script:CandidateAccount }
+            Mock Get-CimInstance { throw 'Synthetic activity discovery failure' } -ParameterFilter { $ClassName -eq 'Win32_LoggedOnUser' }
+
+            $result = Remove-LocalUserAccounts -Accounts @($script:CandidateAccount)
+
+            $result.Success | Should -BeFalse
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+
+        It 'refreshes renamed accounts by SID before checking whether they are active' {
+            Mock Get-LocalUser { [pscustomobject]@{ Name = 'RenamedActive'; SID = $script:CandidateAccount.SID } }
+            Mock Get-CimInstance {
+                [pscustomobject]@{ Antecedent = [pscustomobject]@{ Domain = 'ProfileTestMachine'; Name = 'RenamedActive' } }
+            } -ParameterFilter { $ClassName -eq 'Win32_LoggedOnUser' }
+
+            $result = Remove-LocalUserAccounts -Accounts @($script:CandidateAccount)
+
+            $result.Success | Should -BeFalse
+            Should -Invoke Get-LocalUser -Times 1 -Exactly -ParameterFilter { [string]$SID[0] -eq $script:CandidateAccount.SID }
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
+        }
+
+        It 'preserves accounts whose profile<RestoredState> reappears after candidate selection' -ForEach @(
+            @{ RestoredState = ' registration' }, @{ RestoredState = ' folder' }
+        ) {
+            $targets = @(Get-RemovableLocalAccounts -Accounts @($script:CandidateAccount))
+            $targets.Count | Should -Be 1
+            Mock Get-LocalUser { $script:CandidateAccount }
+            if ($RestoredState -eq ' registration') {
+                Mock Get-CimInstance { [pscustomobject]@{ SID = $script:CandidateAccount.SID } } -ParameterFilter { $ClassName -eq 'Win32_UserProfile' }
+            }
+            else {
+                [void][System.IO.Directory]::CreateDirectory((Join-Path $usersRoot $script:CandidateAccount.Name))
+            }
+
+            $result = Remove-LocalUserAccounts -Accounts $targets
+
+            $result.Success | Should -BeFalse
+            Should -Invoke Remove-LocalUser -Times 0 -Exactly
         }
     }
 
