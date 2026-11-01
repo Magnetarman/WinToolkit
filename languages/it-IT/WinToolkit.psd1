@@ -200,7 +200,7 @@ script.WinUpdateReset = Reset Windows Update
 
 # -- Warning — warnings, cautions, recoverable issues
 
-script.WinDeleteUserProfiles = Elimina account locali e profili utenti di Windows
+script.WinDeleteUserProfiles = Elimina gli account Windows, i profili utenti e le cartelle residue
 
 # END script translations
 
