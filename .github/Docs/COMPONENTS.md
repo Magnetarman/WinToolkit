@@ -178,7 +178,8 @@ Removes local user profiles that are no longer in use, reclaiming the disk space
 in `C:\Users`. It is a two-phase cleanup:
 
 1. **Registered profiles** are queried through `Win32_UserProfile`, and every profile that is
-   unloaded and eligible is removed together with its `ProfileList` registry key.
+   unloaded and eligible is removed together with its `ProfileList` registry key. Each profile
+   is processed completely before the next profile starts.
 2. **Residual folders** left in `C:\Users` — directories no longer associated with any
    profile in the registry or in CIM — are deleted.
 
@@ -194,7 +195,6 @@ in `C:\Users`. It is a two-phase cleanup:
 |-----------|---------|--------|
 | `-MinimumProfileAgeDays` | `0` | Only remove profiles unused for at least N days |
 | `-UsersRoot` | `C:\Users` | Root path to scan |
-| `-MaxThreads` | `min(2, CPU)` | Parallel runspaces, capped at 4 by `Win32_UserProfile` |
 | `-SkipResidualFolderCleanup` | off | Stops after phase 1, leaving folders untouched |
 
 > [!WARNING]
