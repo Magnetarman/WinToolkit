@@ -1,8 +1,8 @@
 
 
 # ==============================================================================
-# SEZIONE 9 · INTERAZIONE UTENTE
-# Input validato, conferme e selezioni di menu.
+# SECTION 9 · USER INTERACTION
+# Validated input, confirmations, and menu selections.
 # ==============================================================================
 
 function Get-UserConfirmation {
@@ -36,7 +36,7 @@ function Get-UserConfirmation {
 function Read-ValidatedChoice {
     <#
     .SYNOPSIS
-        Legge e valida scelte numeriche dall'utente (singole o multiple).
+        Reads and validates the user's numeric choices (single or multiple).
     #>
     param(
         [int[]]$ValidRange,

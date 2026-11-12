@@ -35,7 +35,7 @@ function Set-OfficePostConfig {
     Write-StyledMessage -Type 'Info' -Text ("⚙️ " + (Get-SourceTextLoc 'uiText.deepOptimizationOfMicrosoftOffice'))
 
     $registrySettings = @(
-        # Privacy & Telemetria
+        # Privacy & Telemetry
         @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
         @{ Path = "HKLM:\SOFTWARE\Policies\Microsoft\office\16.0\common"; Name = "sendtelemetry"; Value = 0 },
         @{ Path = "HKCU:\SOFTWARE\Policies\Microsoft\office\16.0\common\privacy"; Name = "disconnectedstate"; Value = 1 },

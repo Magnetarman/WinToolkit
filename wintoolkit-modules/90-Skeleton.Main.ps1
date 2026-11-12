@@ -77,7 +77,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
     :MainMenu while ($true) {
         Show-Header -SubTitle (Get-SourceTextLoc 'menu.main')
 
-        # ── Informazioni di sistema ───────────────────────────────────────────
+        # ── System information ───────────────────────────────────────────
         $width = try { $Host.UI.RawUI.BufferSize.Width } catch { 80 }
         Write-Host ''
         Write-Host "==== 💻 $(Get-SourceTextLoc 'system.infoTitle') 💻 ====" -ForegroundColor Cyan
@@ -108,7 +108,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host ('*' * 50) -ForegroundColor Red
         Write-Host ""
 
-        # ── Voci di menu ─────────────────────────────────────────────────────
+        # ── Menu entries ─────────────────────────────────────────────────────
         $allScripts = @(); $idx = 1
         $languageMenuIndex = $null
         foreach ($cat in $menuStructure) {
@@ -131,7 +131,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
         Write-Host "❌ [0] $(Get-SourceTextLoc 'menu.exitToolkit')" -ForegroundColor Red
         Write-Host ""
 
-        # ── Input utente ──────────────────────────────────────────────────────
+        # ── User input ──────────────────────────────────────────────────────
         $rawInput = Microsoft.PowerShell.Utility\Read-Host (Get-SourceTextLoc 'menu.multiPrompt')
 
         # Secret check
@@ -164,7 +164,7 @@ if (-not $ImportOnly -and -not $Global:GuiSessionActive) {
             continue
         }
 
-        # ── Esecuzione ────────────────────────────────────────────────
+        # ── Execution ────────────────────────────────────────────────
         $Global:ExecutionLog = @()
         $Global:NeedsFinalReboot = $false
         $isMultiScript = ($selections.Count -gt 1)

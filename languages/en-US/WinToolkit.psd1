@@ -71,14 +71,14 @@ bitlocker.status.unknown = Unknown
 # BEGIN confirm translations
 # -- Informational — status, progress, notes
 
-confirm.profile.accept = Yes, I understand what I am doing and accept responsibility if files are deleted
+confirm.profile.accept = Yes, I accept permanent deletion of local accounts and profile data
 confirm.profile.sure = Are you absolutely sure?
-confirm.profile.yes = Yes, delete user profiles
+confirm.profile.yes = Yes, delete local accounts and user profiles
 
 # -- Warning — warnings, cautions, recoverable issues
 
-confirm.profile.warn1 = WARNING: this option will delete all Windows user profiles except the current user.
-confirm.profile.warn2 = Data stored in deleted profiles cannot be recovered.
+confirm.profile.warn1 = WARNING: this option permanently deletes eligible Windows user profiles and local accounts, including accounts whose profiles are already gone. Current, built-in/system, and active users are excluded.
+confirm.profile.warn2 = Deleted local accounts and data stored in deleted profiles cannot be recovered.
 
 # END confirm translations
 
@@ -193,7 +193,7 @@ script.Uninstall-Office = Remove Office
 script.VideoDriverReinstall = Reinstall video driver
 script.WinBackupDriver = PC driver backup
 script.WinCleaner = Temporary file cleanup
-script.WinDeleteUserProfiles = Delete Windows user profiles
+script.WinDeleteUserProfiles = Delete Windows accounts, user profiles and residual folders
 script.WinExportLog = Export WinToolkit logs
 script.WinReinstallStore = Winget/WinStore reset
 script.WinRepairToolkit = Windows repair
@@ -443,6 +443,12 @@ toolText.operationsCompletedSuccessfully0 = Complete operations successfully: {0
 toolText.planActivated = Plan activated.
 toolText.planCreated = Plan created.
 toolText.registeredProfilesRemoved0 = Registered profiles removed: {0}
+toolText.localAccountsSelectedForAutomaticRemoval0 = Local accounts selected for automatic removal: {0}
+toolText.localAccountRemoved01 = Local account removed: {0} ({1}).
+toolText.localAccountRemovalFailed01 = Failed to remove local account {0}: {1}
+toolText.localAccountStillExists0 = Local account still exists after deletion: {0}
+toolText.localAccountProtected0 = Local account {0} is protected or in use; deletion was skipped.
+toolText.localAccountsRemoved0 = Local accounts removed: {0}
 toolText.reinstalled0 = 'Reinstall {0}.'
 toolText.reinstallingXboxGameBarApp = Reinstalling Xbox Game Bar & App.
 toolText.removed0 = 'Remove {0}'

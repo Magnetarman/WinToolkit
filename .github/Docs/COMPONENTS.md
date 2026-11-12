@@ -18,7 +18,7 @@ operation each. Every tool lives in a single file under `tools/`, is compiled in
 | 2 | Windows Update Reset | `WinUpdateReset` | Rebuilds the update stack (services, cache, policies) |
 | 3 | Store Repair | `WinReinstallStore` | Reinstalls Microsoft Store, WinGet, UniGet UI |
 | 4 | Driver Backup | `WinBackupDriver` | Exports third-party drivers to a ZIP on the Desktop |
-| 5 | Delete User Profiles | `WinDeleteUserProfiles` | Removes unused local profiles and residual folders |
+| 5 | Delete User Profiles | `WinDeleteUserProfiles` | Removes unused local accounts, profiles, and residual folders |
 | 6 | Cleaner | `WinCleaner` | Deep cleanup through a rule engine (40+ rules) |
 | 7 | Video Driver Install | `AutoVideoDriverInstall` | Detects the GPU vendor and launches its installer |
 | 8 | Video Driver Reinstall | `VideoDriverReinstall` | Reinstalls drivers via DDU in Safe Mode |
@@ -174,33 +174,44 @@ drivers are no longer available.
 
 `WinDeleteUserProfiles` · `tools/WinDeleteUserProfiles.ps1`
 
-Removes local user profiles that are no longer in use, reclaiming the disk space they hold
-in `C:\Users`. It is a two-phase cleanup:
+Removes local user accounts and profiles that are no longer in use, reclaiming the disk space
+they hold in `C:\Users`. It is a three-phase cleanup:
 
 1. **Registered profiles** are queried through `Win32_UserProfile`, and every profile that is
-   unloaded and eligible is removed together with its `ProfileList` registry key.
+   unloaded and eligible is removed together with its `ProfileList` registry key. Each profile
+   is processed completely before the next profile starts.
 2. **Residual folders** left in `C:\Users` — directories no longer associated with any
    profile in the registry or in CIM — are deleted.
+3. **Local accounts** whose profile data is gone are removed by SID with `Remove-LocalUser`,
+   and account absence is verified. This also removes accounts left behind by earlier
+   profile-only cleanup, so they no longer appear in `net user` or the sign-in account list.
+   Domain accounts are never deleted. Profile-less accounts are considered only when
+   `-UsersRoot` matches the Windows profiles directory; custom roots only affect accounts
+   whose profiles were successfully removed during that run.
 
 **Safety rules built into the tool:**
 
 - the **current user** and their profile are always excluded;
 - these names are always protected: `Public`, `Pubblica`, `Default`, `Default User`,
-  `All Users`, `defaultuser0`, `WDAGUtilityAccount`, `Administrator`, `Guest`, plus the
+  `All Users`, `defaultuser0`, `DefaultAccount`, `WDAGUtilityAccount`, `WSIAccount`, `Administrator`, `Guest`, plus the
   current user and profile folder (the English and Italian names are both covered);
-- a profile that is currently **loaded** is never touched.
+- built-in account SIDs are protected even when account and folder names differ;
+- a profile that is currently **loaded** is never touched;
+- local accounts with active logons or configured services are preserved, even without a profile;
+- failed profile removal or remaining CIM/registry profile entries prevent account deletion;
+- account cleanup stops if profile, logon, or service discovery fails.
 
 | Parameter | Default | Effect |
 |-----------|---------|--------|
-| `-MinimumProfileAgeDays` | `0` | Only remove profiles unused for at least N days |
+| `-MinimumProfileAgeDays` | `0` | Only remove profiles unused for at least N days; profile-less accounts require a known logon older than N days |
 | `-UsersRoot` | `C:\Users` | Root path to scan |
-| `-MaxThreads` | `min(2, CPU)` | Parallel runspaces, capped at 4 by `Win32_UserProfile` |
-| `-SkipResidualFolderCleanup` | off | Stops after phase 1, leaving folders untouched |
+| `-SkipResidualFolderCleanup` | off | Skips residual folder cleanup; eligible accounts with no remaining folder are still removed |
 
 > [!WARNING]
 >
-> **This permanently deletes profile data.** Documents, saved games, browser profiles and any
-> software storing data under the user folder are lost with it. It is also the one tool
+> **This permanently deletes local accounts and profile data.** Documents, saved games, browser profiles and any
+> software storing data under the user folder are lost with it. Accounts without profiles are
+> included, even if they have never signed in, unless an age limit excludes them. It is also the one tool
 > guarded by an extra confirmation at menu level (`Confirm-UserProfileDeletion`).
 >
 > Use `-MinimumProfileAgeDays` to protect profiles that were used recently.

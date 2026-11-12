@@ -1,7 +1,7 @@
 # ==============================================================================
-# SEZIONE 12 · PLACEHOLDER COMPILATORE
-# Stub vuoti sostituiti dal compiler.ps1 con i contenuti di /tools/*.ps1.
-# Ordine: Windows → Office → Driver/Gaming → Supporto (segue $menuStructure).
+# SECTION 12 · COMPILER PLACEHOLDERS
+# Empty stubs replaced by compiler.ps1 with the contents of /tools/*.ps1.
+# Order: Windows → Office → Driver/Gaming → Support (follows $menuStructure).
 # ==============================================================================
 
 # Windows
@@ -25,5 +25,5 @@ function AutoVideoDriverInstall {}
 function VideoDriverReinstall {}
 function GamingToolkit {}
 
-# Supporto
+# Support
 function WinExportLog {}

@@ -1,13 +1,13 @@
 
 # ==============================================================================
-# SEZIONE 8 · WINGET — INSTALLAZIONE E RIPRISTINO
-# Risoluzione eseguibile, installazione AppX silenziosa, validazione e reset.
+# SECTION 8 · WINGET — INSTALLATION AND RECOVERY
+# Executable resolution, silent AppX installation, validation, and reset.
 # ==============================================================================
 
 function Get-WingetExecutable {
     <#
     .SYNOPSIS
-        Risolve il percorso di winget.exe privilegiando l'App Execution Alias.
+        Resolves the path to winget.exe, preferring the App Execution Alias.
     #>
     $aliasPath = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\winget.exe"
     if (Test-Path $aliasPath) { return $aliasPath }
@@ -28,8 +28,8 @@ function Get-WingetExecutable {
 function Start-AppxSilentProcess {
     <#
     .SYNOPSIS
-        Installa un AppX tramite System.Diagnostics.Process (CreateNoWindow=true).
-        Blocca le write Win32 native del deployment engine e gestisce il downgrade.
+        Installs an AppX through System.Diagnostics.Process (CreateNoWindow=true).
+        Suppresses native Win32 output from the deployment engine and handles downgrades.
     #>
     param(
         [string]$AppxPath,
@@ -132,7 +132,7 @@ function Reset-Winget {
     $ProgressPreference = 'SilentlyContinue'
     $OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-    # ── Helper privati ────────────────────────────────────────────────────────
+    # ── Private helpers ────────────────────────────────────────────────────────
 
     function Test-VCRedistInstalled {
         $64BitOS = [System.Environment]::Is64BitOperatingSystem
@@ -437,7 +437,7 @@ function Reset-Winget {
         }
     }
 
-    # ── Orchestrazione principale ─────────────────────────────────────────────
+    # ── Main orchestration ─────────────────────────────────────────────
 
     Write-StyledMessage -Type Info -Text ("🚀 " + (Get-SourceTextLoc 'uiText.startingWingetAdvancedRepair'))
     if (-not (Test-WingetCompatibility)) { return $false }
@@ -449,7 +449,7 @@ function Reset-Winget {
     Stop-ToolkitProcesses -ProcessNames $AppConfig.WingetProcesses
 
     try {
-        # Fase 1: Ripristino Core
+    # Phase 1: Core recovery
         Write-StyledMessage -Type Info -Text ("⚡ " + (Get-SourceTextLoc 'uiText.phase1CoreRecoveryVcAppxDependenciesMsixbundle'))
 
         if (-not (Test-VCRedistInstalled) -or $Force) {
@@ -495,7 +495,7 @@ function Reset-Winget {
             Write-StyledMessage -Type Success -Text ((Get-SourceTextLoc 'uiText.phase1CompletedOperationalWinget'))
         }
         else {
-            # Fase 2: Ripristino Avanzato
+        # Phase 2: Advanced recovery
             Write-StyledMessage -Type Warning -Text ((Get-SourceTextLoc 'uiText.phase1InsufficientStartingPhase2AdvancedRecovery'))
             $null = _Install-WingetAdvanced
             $null = _Repair-WingetDatabase

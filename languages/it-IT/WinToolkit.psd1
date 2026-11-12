@@ -75,10 +75,10 @@ confirm.profile.sure = Sei proprio sicuro?
 
 # -- Warning — warnings, cautions, recoverable issues
 
-confirm.profile.accept = Sì, sono sicuro di ciò che sto facendo e me ne assumo la responsabilità in caso di cancellazione di file
-confirm.profile.warn1 = ATTENZIONE: eseguendo questa opzione verranno cancellati tutti i profili utenti di Windows, escluso l'utente attuale.
-confirm.profile.warn2 = I dati contenuti nei profili eliminati saranno irrecuperabili.
-confirm.profile.yes = Sì, cancella i profili utenti
+confirm.profile.accept = Sì, accetto l'eliminazione definitiva degli account locali e dei dati dei profili
+confirm.profile.warn1 = ATTENZIONE: questa opzione elimina definitivamente i profili utenti di Windows e gli account locali idonei, inclusi gli account i cui profili sono già stati eliminati. Sono esclusi l'utente corrente, gli account predefiniti o di sistema e gli utenti attivi.
+confirm.profile.warn2 = Gli account locali eliminati e i dati contenuti nei profili eliminati saranno irrecuperabili.
+confirm.profile.yes = Sì, elimina gli account locali e i profili utenti
 
 # END confirm translations
 
@@ -200,7 +200,7 @@ script.WinUpdateReset = Reset Windows Update
 
 # -- Warning — warnings, cautions, recoverable issues
 
-script.WinDeleteUserProfiles = Cancella profili utenti di Windows
+script.WinDeleteUserProfiles = Elimina gli account Windows, i profili utenti e le cartelle residue
 
 # END script translations
 
@@ -448,6 +448,12 @@ toolText.operationsCompletedSuccessfully0 = Operazioni completate con successo: 
 toolText.planActivated = Piano attivato.
 toolText.planCreated = Piano creato.
 toolText.registeredProfilesRemoved0 = Profili registrati rimossi: {0}
+toolText.localAccountsSelectedForAutomaticRemoval0 = Account locali selezionati per la rimozione automatica: {0}
+toolText.localAccountRemoved01 = Account locale rimosso: {0} ({1}).
+toolText.localAccountRemovalFailed01 = Impossibile rimuovere l'account locale {0}: {1}
+toolText.localAccountStillExists0 = L'account locale esiste ancora dopo l'eliminazione: {0}
+toolText.localAccountProtected0 = L'account locale {0} è protetto o in uso; eliminazione ignorata.
+toolText.localAccountsRemoved0 = Account locali rimossi: {0}
 toolText.reinstalled0 = Reinstallato: {0}.
 toolText.reinstallingXboxGameBarApp = Reinstallazione Xbox Game Bar & App.
 toolText.removalNotCompleted = Rimozione non completata.

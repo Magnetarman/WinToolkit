@@ -1,9 +1,9 @@
 
 
 # ==============================================================================
-# SEZIONE 4 · LOGGING
-# Motore di log dual-stream: header di sessione + scrittura strutturata su file.
-# Usato da Write-StyledMessage e da tutti i tool via Write-ToolkitLog.
+# SECTION 4 · LOGGING
+# Logging engine with two components: session headers and structured file output.
+# Used by Write-StyledMessage and all tools through Write-ToolkitLog.
 # ==============================================================================
 
 function Start-ToolkitLog {
@@ -64,8 +64,8 @@ WSManStackVersion       : $wsManVer
 function Write-ToolkitLog {
     <#
     .SYNOPSIS
-        Scrive una riga di log strutturata solo su file. Mai su console.
-        Resiliente: assorbe qualsiasi errore I/O senza crashare il toolkit.
+        Writes a structured log line only to the file, never to the console.
+        Resilient: handles any I/O error without crashing the toolkit.
     #>
     param(
         [ValidateSet('DEBUG', 'INFO', 'WARNING', 'ERROR', 'SUCCESS')]
@@ -78,7 +78,8 @@ function Write-ToolkitLog {
     $ts = Get-Date -Format "HH:mm:ss"
     $clean = $Message -replace '^\s+', ''
     $clean = $clean -replace '\x1B\[[0-9;]*[a-zA-Z]', ''
-    $clean = $clean -replace '[⌀-⏿☀-➿\uD800-\uDFFF]', ''
+    # Console styles are emitted separately; preserve Unicode account names and paths in UTF-8 logs.
+    # Removing symbols or surrogate pairs would corrupt valid values inside the message.
     $line = "[$ts] [$Level] $clean"
     if ($Context.Count -gt 0) {
         try { $line += " | Context: " + ($Context | ConvertTo-Json -Compress -Depth 3) } catch {
@@ -106,8 +107,8 @@ function Write-ToolkitLog {
 function Write-ToolkitError {
     <#
     .SYNOPSIS
-        Scrive un errore strutturato su console e su file di log.
-        Sostituisce il blocco catch+log ripetuto in ogni tool.
+        Writes a structured error to the console and log file.
+        Replaces the catch+log block repeated in each tool.
     #>
     param(
         [System.Management.Automation.ErrorRecord]$Record,
