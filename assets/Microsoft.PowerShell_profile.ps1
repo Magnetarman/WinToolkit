@@ -16,7 +16,7 @@
 #  01 CONFIGURATION AND PATHS ..... version, remote endpoints, personal folders
 #  02 CORE HELPERS ................ output, paths, privileges, process launcher
 #  03 ENVIRONMENT AND SHELL ....... PSReadLine, command lookup, profile reload
-#  04 FILE AND DIRECTORY ......... zip/search/mkcd, cd history, back, up
+#  04 FILE AND DIRECTORY .......... zip/search/mkcd, cd history, back, up
 #  05 SYSTEM INFORMATION .......... computer, public IP, mainboard, RAM
 #  06 NETWORK UTILITIES ........... DNS, IP/Winsock reset, speedtest
 #  07 SYSTEM COMMANDS ............. reboot and shutdown
@@ -37,7 +37,10 @@
 # ============================================================================
 
 
-$ProfileVersion = "2.6.0.7"
+$ProfileVersion = "2.6.0.11"
+
+# Fix PowerShell 7 update notification crash on small terminal widths
+$env:POWERSHELL_UPDATECHECK = 'Off'
 
 
 $URL_WINTOOLKIT_STABLE = "https://raw.githubusercontent.com/Magnetarman/WinToolkit/refs/heads/main/WinToolkit.ps1"
@@ -609,9 +612,14 @@ function Get-SpeedtestExecutable {
     if (-not $installed) {
         if (-not (Require-Admin -FeatureName 'Speedtest')) { return $null }
         Write-Host "⬇️ $packageId is not installed. Installing via WinGet..." -ForegroundColor Yellow
-        winget install --id $packageId --source winget --accept-source-agreements --accept-package-agreements --silent --scope machine
-        if ($LASTEXITCODE -ne 0) {
-            Write-Failure "$packageId installation failed (code $LASTEXITCODE)."
+
+        # Invoke-WingetPackageAction echoes the WinGet output via Write-Host and returns a
+        # structured result. A raw 'winget install' would leak its log lines into this
+        # function's return value and turn $speedtestExe into an array on the first run.
+        $installArgs = @('install', '--id', $packageId, '-e', '--source', 'winget', '--silent', '--scope', 'machine', '--accept-package-agreements', '--accept-source-agreements')
+        $result = Invoke-WingetPackageAction -Arguments $installArgs
+        if ($result.ExitCode -ne 0) {
+            Write-Failure "$packageId installation failed (code $($result.ExitCode))."
             return $null
         }
         # Refresh PATH so the freshly installed executable is found in the current session
@@ -667,10 +675,33 @@ function Speedtest {
     Write-Host "🚀 Starting Speedtest..." -ForegroundColor Yellow
     Write-Host "📝 Results saved to '$outputPath'." -ForegroundColor Yellow
 
-    # Human-readable raw output on screen + save to file (single run, no extra latency)
-    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Tee-Object -FilePath $outputPath
+    # Raw output goes to the file; the console gets a filtered view so the first-run
+    # EULA/GDPR banners and the transient '[error] Cannot open socket' retries stay
+    # out of the result flow (they remain available in the saved log).
+    & $speedtestExe --accept-license --accept-gdpr -p *>&1 | Out-File -FilePath $outputPath
 
     $text = Get-Content -Path $outputPath -Raw
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        Write-Warn "Speedtest produced no output. Check the log: $outputPath"
+        return
+    }
+
+    # Show only the results block: the very first run prints license banners before it
+    $displayText = $text
+    $resultsStart = $text.IndexOf('Speedtest by Ookla')
+    if ($resultsStart -gt 0) { $displayText = $text.Substring($resultsStart) }
+
+    # Transient connection errors (server probing retries) stay in the file only
+    $errorMatches = [regex]::Matches($displayText, '(?m)^\[error\].*$')
+    if ($errorMatches.Count -gt 0) {
+        $displayText = [regex]::Replace($displayText, '(?m)^\[error\].*\r?\n?', '')
+    }
+
+    Write-Host ''
+    Write-Host $displayText.TrimEnd()
+    if ($errorMatches.Count -gt 0) {
+        Write-Warn "$($errorMatches.Count) transient connection error(s) were retried automatically. Full log: $outputPath"
+    }
 
     # Helper: extract first capture group or 'n/a' (guarantees a non-empty value)
     function Get-Value([string]$Pattern, [string]$InputStr) {
@@ -930,24 +961,31 @@ function Invoke-WingetPackageAction {
         [string[]]$Arguments
     )
 
+    # WinGet writes UTF-8 while the console may still use an OEM codepage (e.g. CP850):
+    # without this temporary swap, accented output arrives mangled ("non ├¿ responsabile").
+    $previousEncoding = [Console]::OutputEncoding
     try {
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
         $output = @(& winget @Arguments 2>&1)
         $exitCode = $LASTEXITCODE
-
-        foreach ($line in $output) {
-            Write-Host $line
-        }
-
-        return [PSCustomObject]@{
-            ExitCode = $exitCode
-            Output   = ($output -join [Environment]::NewLine)
-        }
     }
     catch {
         return [PSCustomObject]@{
             ExitCode = $null
             Output   = $_.Exception.Message
         }
+    }
+    finally {
+        [Console]::OutputEncoding = $previousEncoding
+    }
+
+    foreach ($line in $output) {
+        Write-Host $line
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = $exitCode
+        Output   = ($output -join [Environment]::NewLine)
     }
 }
 
@@ -970,6 +1008,26 @@ function Test-WingetReinstallRequired {
     }
 
     return $Result.Output -match $reinstallPhrases
+}
+
+
+function Test-WingetUnknownVersion {
+    <#
+    .SYNOPSIS
+        Detects a WinGet upgrade failure caused by an undeterminable installed version.
+    .DESCRIPTION
+        WinGet returns APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE (-1978335189) and
+        prints an --include-unknown hint when the installed version cannot be determined
+        (common with third-party packages that report "Unknown"). The hint token is
+        locale-independent, so we key off it instead of translated prose.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Result
+    )
+
+    return ($Result.Output -match '(?i)--include-unknown')
 }
 
 
@@ -1025,6 +1083,44 @@ function Invoke-WingetReinstall {
     }
 
     Write-Failure "$PackageId reinstall failed (code $($installResult.ExitCode))."
+    return $false
+}
+
+
+function Invoke-WingetUnknownVersionRetry {
+    <#
+    .SYNOPSIS
+        Retries a WinGet upgrade for a package whose installed version could not be determined,
+        using the --include-unknown argument.
+    .DESCRIPTION
+        WinGet refuses to upgrade packages whose installed version is "Unknown" unless
+        --include-unknown is passed. This helper performs that retry and reports the outcome.
+        If the retry surfaces a technology/scope conflict, it delegates to Invoke-WingetReinstall.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageId
+    )
+
+    Write-Host "🔄 Retrying $PackageId with --include-unknown..." -ForegroundColor Cyan
+    $result = Invoke-WingetPackageAction -Arguments @(
+        'upgrade', '--id', $PackageId, '-e', '--silent',
+        '--accept-package-agreements', '--accept-source-agreements',
+        '--include-unknown'
+    )
+
+    if ($result.ExitCode -eq 0) {
+        Write-Success "$PackageId upgraded successfully."
+        return $true
+    }
+
+    if (Test-WingetReinstallRequired -Result $result) {
+        Write-Warn "$PackageId requires an automatic reinstall after the unknown-version retry."
+        return Invoke-WingetReinstall -PackageId $PackageId
+    }
+
+    Write-Failure "$PackageId upgrade failed (code $($result.ExitCode))."
     return $false
 }
 
@@ -1087,10 +1183,12 @@ function PSProfileUpdate {
 function Winget-Update {
     <#
     .SYNOPSIS
-        Upgrades pasted WinGet package IDs and automatically reinstalls incompatible packages.
+        Upgrades pasted WinGet package IDs, retries unknown-version packages, and reinstalls incompatible ones.
     .DESCRIPTION
-        Prompts for a list of package IDs (one per line), upgrades each, and automatically
-        uninstalls + reinstalls any that fail due to installation technology incompatibility.
+        Prompts for a list of package IDs (one per line), upgrades each. Packages whose
+        installed version cannot be determined by WinGet are retried with --include-unknown;
+        packages that fail due to installation technology incompatibility are collected
+        and automatically uninstalled + reinstalled.
     #>
     [CmdletBinding()]
     param()
@@ -1131,7 +1229,11 @@ function Winget-Update {
         Write-Host "`n🔄 Upgrading $packageId..." -ForegroundColor Cyan
         $result = Invoke-WingetPackageAction -Arguments @('upgrade', '--id', $packageId, '-e', '--silent', '--accept-package-agreements', '--accept-source-agreements')
 
-        if (Test-WingetReinstallRequired -Result $result) {
+        if (Test-WingetUnknownVersion -Result $result) {
+            Write-Warn "$packageId version is not determinable; retrying with --include-unknown..."
+            $null = Invoke-WingetUnknownVersionRetry -PackageId $packageId
+        }
+        elseif (Test-WingetReinstallRequired -Result $result) {
             $failedPackages.Add($packageId)
             Write-Warn "$packageId requires an automatic reinstall after the remaining upgrades."
         }
@@ -1800,7 +1902,7 @@ function Show-Help {
             Section = '09. PROGRAM UPDATES'
             Items   = @(
                 [pscustomobject]@{ Name = 'Update-Pwsh'; Color = 'Green'; Description = 'Updates PowerShell to the latest version.' },
-                [pscustomobject]@{ Name = 'Winget-Update'; Color = 'Yellow'; Description = 'Upgrades pasted WinGet package IDs and reinstalls incompatible ones.' },
+                [pscustomobject]@{ Name = 'Winget-Update'; Color = 'Yellow'; Description = 'Upgrades pasted WinGet package IDs, retries unknown-version ones, reinstalls incompatible ones.' },
                 [pscustomobject]@{ Name = 'Pip-Update'; Color = 'Yellow'; Description = 'Upgrades all outdated pip packages (excludes python/pip).' },
                 [pscustomobject]@{ Name = 'PSProfileUpdate'; Color = 'Green'; Description = 'Updates the PowerShell profile to the latest version.' }
             )
@@ -1841,6 +1943,8 @@ function Show-Help {
     $lines.Add("$($PSStyle.Foreground.Green)Green (Safe):$($PSStyle.Reset) Usage does not pose risks or issues.")
     $lines.Add("$($PSStyle.Foreground.Yellow)Yellow (Warning):$($PSStyle.Reset) Warning! Read the description because these commands can make risky system changes.")
     $lines.Add("$($PSStyle.Foreground.Red)Red (ALERT!):$($PSStyle.Reset) STOP! These functions are designed to perform deep and destructive changes. Be careful!")
+    $lines.Add("$($PSStyle.Foreground.Blue)Blue (Personal):$($PSStyle.Reset) Personal script from a Private Directory (not in the open-source WinToolkit; won't work in a classic install).")
+    $lines.Add("$($PSStyle.Foreground.Magenta)Magenta (WinToolkit GUI):$($PSStyle.Reset) WinToolkit GUI launcher.")
     $lines.Add('')
     $lines.Add($divider)
 
@@ -1926,6 +2030,15 @@ if (Test-CommandExists -Name "fastfetch") {
 
 Write-Host ""
 Write-Host "💡 Type 'help' to discover custom commands." -ForegroundColor Yellow
+# Persistently disable PowerShell update notifications (host-level crash on narrow
+# terminals: ShowUpdateNotification calls PadRight with a negative width). The
+# process-level variable above is too late for the first run, so persist it in
+# the user environment for every future pwsh invocation.
+if ([Environment]::GetEnvironmentVariable('POWERSHELL_UPDATECHECK', 'User') -ne 'Off') {
+    [Environment]::SetEnvironmentVariable('POWERSHELL_UPDATECHECK', 'Off', 'User')
+    Write-Warn "POWERSHELL_UPDATECHECK persisted as 'Off'. Restart the terminal to apply."
+}
+
 Write-Success "Profile loaded - Version: $ProfileVersion"
 
 # ============================================================================

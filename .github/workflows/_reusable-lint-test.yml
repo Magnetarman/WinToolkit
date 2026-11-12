@@ -292,6 +292,7 @@ jobs:
             @{ Path = '.github/tests/Unit/Localization.Tests.ps1';        Root = 'wintoolkit-modules' },
             @{ Path = '.github/tests/Unit/Tools.Contract.Tests.ps1';       Root = 'tools' },
             @{ Path = '.github/tests/Unit/WinDeleteUserProfiles.Tests.ps1'; Root = 'tools' }
+            @{ Path = '.github/tests/Unit/Profile.WingetUnknownVersion.Tests.ps1'; Root = 'assets' }
           )
           $suitePaths = @(
             $requiredFolders |

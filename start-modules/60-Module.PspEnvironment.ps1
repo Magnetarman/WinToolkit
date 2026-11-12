@@ -231,6 +231,10 @@ function Install-PspEnvironment {
                 $result.Changed = $true
                 Write-StyledMessage -Type Success -Text (Get-SourceTextLoc 'uiText.powershell7ProfileConfigured')
                 Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile installed: $targetProfile"
+                $unblocked = Unblock-File -LiteralPath $targetProfile -ErrorAction SilentlyContinue
+                if ($unblocked) {
+                    Write-ToolkitLog -Level 'INFO' -Message "PowerShell profile unblocked (Zone.Identifier removed): $targetProfile"
+                }
             }
             else {
                 $result.Success = $false
